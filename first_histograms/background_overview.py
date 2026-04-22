@@ -4,6 +4,9 @@ from hist import Hist
 import numpy as np
 import matplotlib.pyplot as plt
 
+"""This script plots HH signal, tt and dy background data in the HH output node,
+with further splitting the tt background into its three different channels ids.
+"""
 events_dy = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/dy_22pre_v14.parquet")  # dy simulation data
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pre_v14.parquet")  # tt simulation data
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data

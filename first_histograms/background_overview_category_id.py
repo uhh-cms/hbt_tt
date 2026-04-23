@@ -16,21 +16,16 @@ n_bins = 100
 
 # initialize histograms
 hh = Hist(hist.axis.Regular(n_bins, 0, 1, name="hh", label="hh"))
-dy = Hist(hist.axis.Regular(n_bins, 0, 1, name="dy", label="dy"))
-tt = Hist(hist.axis.Regular(n_bins, 0, 1, name="tt", label="tt"))
+#tt = Hist(hist.axis.Regular(n_bins, 0, 1, name="tt", label="tt"))
 
 
 # fill histograms
 hh.fill(events_hh.run3_dnn_moe_hh, weight =events_hh.event_weight)
-dy.fill(events_dy.run3_dnn_moe_hh, weight =events_dy.event_weight)
 
 # plot histograms
 x = np.linspace(0, 1, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
 fig = plt.figure(figsize=(10, 6))
-
-# scale the hh histogram up, weighted by the integral of the dy and tt data
-scaling_factor = (hh.values().sum() / (tt.values().sum() + dy.values().sum()))**(-1)
 
 # further split tt bg
 # category id masks (one or two resolved b jets)
@@ -38,52 +33,61 @@ scaling_factor = (hh.values().sum() / (tt.values().sum() + dy.values().sum()))**
 etau_mask_res1b_sl = ak.any(events_tt.category_ids == 147, axis = 1) & (events_tt.process_id == 1100)
 etau_mask_res1b_dl = ak.any(events_tt.category_ids == 147, axis = 1) & (events_tt.process_id == 1200)
 etau_mask_res1b_fh = ak.any(events_tt.category_ids == 147, axis = 1) & (events_tt.process_id == 1300)
+etau_mask_res1b = ak.any(events_dy.category_ids == 147, axis = 1)
 
 etau_mask_res2b_sl = ak.any(events_tt.category_ids == 151, axis = 1) & (events_tt.process_id == 1100)
 etau_mask_res2b_dl = ak.any(events_tt.category_ids == 151, axis = 1) & (events_tt.process_id == 1200)
 etau_mask_res2b_fh = ak.any(events_tt.category_ids == 151, axis = 1) & (events_tt.process_id == 1300)
+etau_mask_res2b = ak.any(events_dy.category_ids == 151, axis = 1)
 
 mutau_mask_res1b_sl = ak.any(events_tt.category_ids == 175, axis = 1) & (events_tt.process_id == 1100)
 mutau_mask_res1b_dl = ak.any(events_tt.category_ids == 175, axis = 1) & (events_tt.process_id == 1200)
 mutau_mask_res1b_fh = ak.any(events_tt.category_ids == 175, axis = 1) & (events_tt.process_id == 1300)
+mutau_mask_res1b = ak.any(events_dy.category_ids == 175, axis = 1)
 
 mutau_mask_res2b_sl = ak.any(events_tt.category_ids == 179, axis = 1) & (events_tt.process_id == 1100)
 mutau_mask_res2b_dl = ak.any(events_tt.category_ids == 179, axis = 1) & (events_tt.process_id == 1200)
 mutau_mask_res2b_fh = ak.any(events_tt.category_ids == 179, axis = 1) & (events_tt.process_id == 1300)
+mutau_mask_res2b = ak.any(events_dy.category_ids == 179, axis = 1)
 
 tautau_mask_res1b_sl = ak.any(events_tt.category_ids == 203, axis = 1) & (events_tt.process_id == 1100)
 tautau_mask_res1b_dl = ak.any(events_tt.category_ids == 203, axis = 1) & (events_tt.process_id == 1200)
 tautau_mask_res1b_fh = ak.any(events_tt.category_ids == 203, axis = 1) & (events_tt.process_id == 1300)
+tautau_mask_res1b = ak.any(events_dy.category_ids == 203, axis = 1)
 
 tautau_mask_res2b_sl = ak.any(events_tt.category_ids == 207, axis = 1) & (events_tt.process_id == 1100)
 tautau_mask_res2b_dl = ak.any(events_tt.category_ids == 207, axis = 1) & (events_tt.process_id == 1200)
 tautau_mask_res2b_fh = ak.any(events_tt.category_ids == 207, axis = 1) & (events_tt.process_id == 1300)
-
+tautau_mask_res2b = ak.any(events_dy.category_ids == 207, axis = 1)
 
 # prepare plotting loop
-masks = [[etau_mask_res1b_sl, etau_mask_res1b_dl, etau_mask_res1b_fh],
-         [etau_mask_res2b_sl, etau_mask_res2b_dl, etau_mask_res2b_fh],
-         [mutau_mask_res1b_sl, mutau_mask_res1b_dl, mutau_mask_res1b_fh],
-         [mutau_mask_res2b_sl, mutau_mask_res2b_dl, mutau_mask_res2b_fh],
-         [tautau_mask_res1b_sl, tautau_mask_res1b_dl, tautau_mask_res1b_fh],
-         [tautau_mask_res2b_sl, tautau_mask_res2b_dl, tautau_mask_res2b_fh]]
+masks = [[etau_mask_res1b_sl, etau_mask_res1b_dl, etau_mask_res1b_fh, etau_mask_res1b],
+         [etau_mask_res2b_sl, etau_mask_res2b_dl, etau_mask_res2b_fh, etau_mask_res2b],
+         [mutau_mask_res1b_sl, mutau_mask_res1b_dl, mutau_mask_res1b_fh, mutau_mask_res1b],
+         [mutau_mask_res2b_sl, mutau_mask_res2b_dl, mutau_mask_res2b_fh, mutau_mask_res2b],
+         [tautau_mask_res1b_sl, tautau_mask_res1b_dl, tautau_mask_res1b_fh, tautau_mask_res1b],
+         [tautau_mask_res2b_sl, tautau_mask_res2b_dl, tautau_mask_res2b_fh, tautau_mask_res2b]]
 labels = ["etau, res 1b","etau, res 2b", "mutau, res 1b", "mutau, res 2b", "tautau, res 1b", "tautau, res 2b"]
 
 for mask, label in zip(masks, labels):
     #for scale in ('linear', 'log'):
         # initialize histograms
-        tt_sl =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt", label="tt"))
-        tt_dl =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt", label="tt"))
-        tt_fh =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt", label="tt"))
+        tt_sl =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt_sl", label="tt_sl"))
+        tt_dl =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt_dl", label="tt_dl"))
+        tt_fh =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt_fh", label="tt_fh"))
+        dy =      Hist(hist.axis.Regular(n_bins, 0, 1, name="dy", label="dy"))
+
         # fill histograms
         tt_sl.fill(events_tt.run3_dnn_moe_hh[mask[0]], weight =events_tt.event_weight[mask[0]])
         tt_dl.fill(events_tt.run3_dnn_moe_hh[mask[1]], weight =events_tt.event_weight[mask[1]])
         tt_fh.fill(events_tt.run3_dnn_moe_hh[mask[2]], weight =events_tt.event_weight[mask[2]])
+        dy.fill(events_dy.run3_dnn_moe_hh[mask[3]], weight =events_dy.event_weight[mask[3]])
 
         # scale the hh histogram up, weighted by the integral of the dy and tt data
         scaling_factor = (hh.values().sum() / (tt_sl.values().sum() + tt_dl.values().sum() + tt_fh.values().sum() + dy.values().sum()))**(-1)
         # plot
         fig = plt.figure(figsize=(10, 6))
+
         bottom = np.zeros_like(x)
         plt.bar(x, tt_sl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
         bottom+=tt_sl.values()
@@ -101,8 +105,9 @@ for mask, label in zip(masks, labels):
         plt.legend()
 
         plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_logscale.png", dpi=300, bbox_inches='tight')
-        #plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_{scale}scale.png", dpi=300, bbox_inches='tight')
-
         plt.show()
-        tt.reset()
+        tt_sl.reset()
+        tt_dl.reset()
+        tt_fh.reset()
+        dy.reset()
 

@@ -27,6 +27,9 @@ dy.fill(events_dy.run3_dnn_moe_hh, weight =events_dy.event_weight)
 
 # significance
 def significance(s, *b):
+    """
+    Computes the significance, signal squared over background,
+    per bin, for the number of bins defined above as n_bins"""
     s_count = s.values()
     b_count = np.sum([_b.values() for _b in b], axis=0)
 
@@ -34,7 +37,7 @@ def significance(s, *b):
     return sig_per_bin
 
 sig = significance(hh, tt, dy)
-total_significance = np.sum(sig)
+total_significance = np.sqrt(np.sum(np.square(sig)))
 
 
 # plot histograms
@@ -123,13 +126,13 @@ for mask, label in zip(masks, labels):
     tt_fh.fill(events_tt.run3_dnn_moe_hh[mask[2]], weight =events_tt.event_weight[mask[2]])
     # plot
     significance_cat = significance(hh, tt_sl, tt_dl, tt_fh, dy)
-    total_significance_cat = np.sum(significance_cat)
-    
+    total_significance_cat = np.sqrt(np.sum(np.square(significance_cat)))
+
     # quick check bc significance looks very similar in every plot
-    print(label,
-      ak.sum(mask[0]),
-      ak.sum(mask[1]),
-      ak.sum(mask[2]))
+    # print(label,
+    #   ak.sum(mask[0]),
+    #   ak.sum(mask[1]),
+    #   ak.sum(mask[2]))
     
     fig, ax1 = plt.subplots(figsize=(9, 5))
     fig.subplots_adjust(right=0.85)

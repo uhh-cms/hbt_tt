@@ -12,7 +12,7 @@ events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pr
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
 
 
-n_bins = 100
+n_bins = 60
 
 # initialize histograms
 hh = Hist(hist.axis.Regular(n_bins, 0, 1, name="hh", label="hh"))
@@ -51,7 +51,7 @@ fig.subplots_adjust(right=0.85)
 color = 'black'
 ax1.set_xlabel('HH output node')
 ax1.set_ylabel('Number of events', color=color)
-ax1.bar(x, tt.values(), width=1/n_bins, bottom=None, alpha=0.5, label='tt', color='blue', edgecolor='black')
+ax1.bar(x, tt.values(), width=1/n_bins, bottom=None, alpha=0.5, label='tt', color='violet', edgecolor='black')
 ax1.bar(x, dy.values(), width=1/n_bins, bottom=tt.values(), alpha=0.5, label='dy', color='red', edgecolor='black')
 ax1.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
 
@@ -88,7 +88,7 @@ fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
 
 
-plt.savefig("images_hists/hh_output_node_logscale_sig_2axes.png", dpi=300, bbox_inches='tight')
+plt.savefig("images_hists/hh_output_node_logscale_significance.png", dpi=300, bbox_inches='tight')
 #plt.show()
 tt.reset()
 

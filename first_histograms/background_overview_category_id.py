@@ -12,7 +12,7 @@ events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pr
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
 
 
-n_bins = 100
+n_bins = 60
 
 # initialize histograms
 hh = Hist(hist.axis.Regular(n_bins, 0, 1, name="hh", label="hh"))
@@ -26,6 +26,19 @@ hh.fill(events_hh.run3_dnn_moe_hh, weight =events_hh.event_weight)
 x = np.linspace(0, 1, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
 fig = plt.figure(figsize=(10, 6))
+
+def significance(s, *b):
+    """
+    Computes the significance, signal squared over background,
+    per bin, for the number of bins defined above as n_bins"""
+    s_count = s.values()
+    b_count = np.sum([_b.values() for _b in b], axis=0)
+
+    sig_per_bin = s_count**2 / b_count
+    return sig_per_bin
+
+def total_significance(s):
+    return np.sqrt(np.sum(np.square(s)))
 
 # further split tt bg
 # category id masks (one or two resolved b jets)
@@ -82,30 +95,53 @@ for mask, label in zip(masks, labels):
         tt_dl.fill(events_tt.run3_dnn_moe_hh[mask[1]], weight =events_tt.event_weight[mask[1]])
         tt_fh.fill(events_tt.run3_dnn_moe_hh[mask[2]], weight =events_tt.event_weight[mask[2]])
         dy.fill(events_dy.run3_dnn_moe_hh[mask[3]], weight =events_dy.event_weight[mask[3]])
+        
+        # compute significance
+        sig = significance(hh, tt_sl, tt_dl, tt_fh, dy)
+        sig_tot = total_significance(sig)
+        # print(f"total significance for {label}: ", round(sig_tot, 2))
+        
 
         # scale the hh histogram up, weighted by the integral of the dy and tt data
         scaling_factor = (hh.values().sum() / (tt_sl.values().sum() + tt_dl.values().sum() + tt_fh.values().sum() + dy.values().sum()))**(-1)
         # plot
-        fig = plt.figure(figsize=(10, 6))
+        fig, ax1 = plt.subplots(figsize=(9, 5))
+        fig.subplots_adjust(right=0.85)
 
+        color = 'black'
         bottom = np.zeros_like(x)
-        plt.bar(x, tt_sl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
+        ax1.bar(x, tt_sl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
         bottom+=tt_sl.values()
-        plt.bar(x, tt_dl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
+        ax1.bar(x, tt_dl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
         bottom+=tt_dl.values()
-        plt.bar(x, tt_fh.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic',  edgecolor='black')
+        ax1.bar(x, tt_fh.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic',  edgecolor='black')
         bottom+=tt_fh.values()
-        plt.bar(x, dy.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
-        plt.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
-        plt.gca().set_yscale('log')  # Set y-axis to log scale
+        ax1.bar(x, dy.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
+        ax1.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.set_xlabel("HH output node")
+        ax1.set_ylabel("Number of events")
+        # plt.gca().set_yscale('log')  # Set y-axis to log scale
 
-        plt.xlabel("HH output node")
-        plt.ylabel("Number of events")
-        plt.title(f"HH output node for signal and background data, {label} channel")
-        plt.legend()
+        ax2 = ax1.twinx()
+        color = '#4b2e83'
+        ax2.set_ylabel('significance', color=color)  # we already handled the x-label with ax1
+        ax2.plot(x, sig, label='significance', color=color, alpha=1.0)
+        ax2.tick_params(axis='y', labelcolor=color)
+        
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.set_yscale("log")
+        ax2.set_yscale("log") 
+        fig.tight_layout()
+        ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.3, 1))
 
-        plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_logscale.png", dpi=300, bbox_inches='tight')
+        plt.title(f"{label} channel; total significance = {round(sig_tot, 2)}")
+
+
+        plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_log_sig.png", dpi=300, bbox_inches='tight')
         plt.show()
+        
         tt_sl.reset()
         tt_dl.reset()
         tt_fh.reset()

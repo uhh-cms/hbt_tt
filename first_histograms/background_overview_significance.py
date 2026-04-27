@@ -33,43 +33,63 @@ def significance(s, *b):
     sig_per_bin = s_count**2 / b_count
     return sig_per_bin
 
-significance = significance(hh, tt, dy)
-total_significance = np.sum(significance)
+sig = significance(hh, tt, dy)
+total_significance = np.sum(sig)
 
 
 # plot histograms
 x = np.linspace(0, 1, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
-fig = plt.figure(figsize=(10, 6))
+# fig = plt.figure(figsize=(10, 6))
 
 # scale the hh histogram up, weighted by the integral of the dy and tt data
 scaling_factor = (hh.values().sum() / (tt.values().sum() + dy.values().sum()))**(-1)
 
-plt.bar(x, tt.values(), width=1/n_bins, bottom=None, alpha=0.5, label='tt', color='blue', edgecolor='black')
-plt.bar(x, dy.values(), width=1/n_bins, bottom=tt.values(), alpha=0.5, label='dy', color='red', edgecolor='black')
-plt.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
-plt.plot(x, significance, label='significance', color='orange')
+fig, ax1 = plt.subplots(figsize=(9, 5))
+fig.subplots_adjust(right=0.85)
 
-current_axes = plt.gca()
-current_axes.set_yscale('log')  # Set y-axis to logarithmic scale
+color = 'black'
+ax1.set_xlabel('HH output node')
+ax1.set_ylabel('Number of events', color=color)
+ax1.bar(x, tt.values(), width=1/n_bins, bottom=None, alpha=0.5, label='tt', color='blue', edgecolor='black')
+ax1.bar(x, dy.values(), width=1/n_bins, bottom=tt.values(), alpha=0.5, label='dy', color='red', edgecolor='black')
+ax1.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
 
+ax1.tick_params(axis='y', labelcolor=color)
+
+ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
+
+color = '#4b2e83'
+ax2.set_ylabel('significance', color=color)  # we already handled the x-label with ax1
+ax2.plot(x, sig, label='significance', color=color, alpha=1.0)
+ax2.tick_params(axis='y', labelcolor=color)
+
+lines1, labels1 = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax1.set_yscale("log")
+ax2.set_yscale("log") 
+fig.tight_layout()
+
+
+ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.45, 1))
+
+# current_axes = plt.gca()
+# current_axes.set_yscale('log')  # Set y-axis to logarithmic scale
 # legend, adding iteration number and weigh factor
-lines, labels = current_axes.get_legend_handles_labels()
-dummy_line = plt.Line2D([], [], linestyle="", marker="")
-# current iteration
-lines.append(dummy_line)
-labels.append(f"total significance: {total_significance}")
-# number of events
+# lines, labels = current_axes.get_legend_handles_labels()
+# dummy_line = plt.Line2D([], [], linestyle="", marker="")
+# # current iteration
+# lines.append(dummy_line)
+# labels.append(f"total significance: {total_significance}")
 
+plt.title(f"HH output node for signal and background data; total significance = {round(total_significance, 2)}")
 
-
-plt.xlabel("HH output node")
-plt.ylabel("Number of events")
-plt.title("HH output node for signal and background data")
-plt.legend(loc = "upper center")
-
-plt.savefig("hh_output_node_histogram.png", dpi=300, bbox_inches='tight')
+fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
+
+
+plt.savefig("images_hists/hh_output_node_logscale_sig_2axes.png", dpi=300, bbox_inches='tight')
+#plt.show()
 tt.reset()
 
 # subsequent plots: further split tt bg
@@ -91,6 +111,7 @@ tautau_mask_fh = (events_tt.channel_id == 3) & (events_tt.process_id == 1300)
 masks = [[etau_mask_sl, etau_mask_dl, etau_mask_fh], [mutau_mask_sl, mutau_mask_dl, mutau_mask_fh], [tautau_mask_sl, tautau_mask_dl, tautau_mask_fh]]
 labels = ["etau", "mutau", "tautau"]
 
+
 for mask, label in zip(masks, labels):
     # initialize histograms
     tt_sl =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt", label="tt"))
@@ -101,24 +122,53 @@ for mask, label in zip(masks, labels):
     tt_dl.fill(events_tt.run3_dnn_moe_hh[mask[1]], weight =events_tt.event_weight[mask[1]])
     tt_fh.fill(events_tt.run3_dnn_moe_hh[mask[2]], weight =events_tt.event_weight[mask[2]])
     # plot
-    fig = plt.figure(figsize=(10, 6))
+    significance_cat = significance(hh, tt_sl, tt_dl, tt_fh, dy)
+    total_significance_cat = np.sum(significance_cat)
+    
+    # quick check bc significance looks very similar in every plot
+    print(label,
+      ak.sum(mask[0]),
+      ak.sum(mask[1]),
+      ak.sum(mask[2]))
+    
+    fig, ax1 = plt.subplots(figsize=(9, 5))
+    fig.subplots_adjust(right=0.85)
+    color = 'black'
     bottom = np.zeros_like(x)
-    plt.bar(x, tt_sl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
+    ax1.bar(x, tt_sl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
     bottom+=tt_sl.values()
-    plt.bar(x, tt_dl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
+    ax1.bar(x, tt_dl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
     bottom+=tt_dl.values()
-    plt.bar(x, tt_fh.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic', edgecolor='black')
+    ax1.bar(x, tt_fh.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic', edgecolor='black')
     bottom+=tt_fh.values()
-    plt.bar(x, dy.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
-    plt.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
-    plt.gca().set_yscale("log")  # Set y-axis to linear scale
+    ax1.bar(x, dy.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
+    ax1.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax1.set_xlabel("HH output node")
+    ax1.set_ylabel("Number of events")
 
-    plt.xlabel("HH output node")
-    plt.ylabel("Number of events")
-    plt.title(f"HH output node for signal and background data, {label} channel")
-    plt.legend()
+    ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
-    plt.savefig(f"images_hists/hh_output_node_histogram_{label}_log_scale.png", dpi=300, bbox_inches='tight')
+    color = '#4b2e83'
+    ax2.set_ylabel('significance', color=color)  # we already handled the x-label with ax1
+    ax2.plot(x, significance_cat, label='significance', color=color, alpha=1.0)
+    
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+
+    ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.45, 1))
+    #ax2.legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
+    # fig.tight_layout() 
+    ax1.set_yscale("log")
+    ax2.set_yscale("log") 
+    fig.tight_layout()
+    plt.title(f"HH output node for signal and background data, {label} channel; total significance = {round(total_significance_cat, 2)}")
+    plt.savefig(f"images_hists/hh_output_node_histogram_{label}_logscale_significance.png", dpi=300, bbox_inches='tight')
     plt.show()
     tt.reset()
+    significance_cat = 0
+    total_significance_cat = 0
+    
 

@@ -95,7 +95,7 @@ for mask, label in zip(masks, labels):
         plt.title(f"HH output node for signal and background data, {label} channel")
         plt.legend()
 
-        plt.savefig(f"hh_output_node_histogram_{label}_{scale}scale.png", dpi=300, bbox_inches='tight')
+        plt.savefig(f"images_hists/hh_output_node_histogram_{label}_{scale}scale.png", dpi=300, bbox_inches='tight')
         plt.show()
         tt.reset()
 

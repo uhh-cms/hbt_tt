@@ -11,16 +11,20 @@ events_dy = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/dy_22pr
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pre_v14.parquet")  # tt simulation data
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
 
-
 n_bins = 60
+eps = 1e-6 # set eps=0 for normal scale
+def logit(x):
+    # set this fct to return x for normal scale
+    return np.log((x + eps) / (1 - x + eps))
+# discard negative values to avoid errors in logit transformation
+events_hh = events_hh[events_hh.run3_dnn_moe_hh > 0]
+events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
+events_dy = events_dy[events_dy.run3_dnn_moe_hh > 0]
 
 # initialize histograms
-hh = Hist(hist.axis.Regular(n_bins, 0, 1, name="hh", label="hh"))
-#tt = Hist(hist.axis.Regular(n_bins, 0, 1, name="tt", label="tt"))
-
-
+hh = Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="hh", label="hh"))
 # fill histograms
-hh.fill(events_hh.run3_dnn_moe_hh, weight =events_hh.event_weight)
+hh.fill(logit(events_hh.run3_dnn_moe_hh), weight =events_hh.event_weight)
 
 # plot histograms
 x = np.linspace(0, 1, n_bins + 1)  # bin edges
@@ -34,7 +38,7 @@ def significance(s, *b):
     s_count = s.values()
     b_count = np.sum([_b.values() for _b in b], axis=0)
 
-    sig_per_bin = s_count**2 / b_count
+    sig_per_bin = s_count**2 / (b_count + eps)
     return sig_per_bin
 
 def total_significance(s):
@@ -85,23 +89,20 @@ labels = ["etau, res 1b","etau, res 2b", "mutau, res 1b", "mutau, res 2b", "taut
 for mask, label in zip(masks, labels):
     #for scale in ('linear', 'log'):
         # initialize histograms
-        tt_sl =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt_sl", label="tt_sl"))
-        tt_dl =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt_dl", label="tt_dl"))
-        tt_fh =   Hist(hist.axis.Regular(n_bins, 0, 1, name="tt_fh", label="tt_fh"))
-        dy =      Hist(hist.axis.Regular(n_bins, 0, 1, name="dy", label="dy"))
+        tt_sl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="tt_sl", label="tt_sl"))
+        tt_dl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="tt_dl", label="tt_dl"))
+        tt_fh =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="tt_fh", label="tt_fh"))
+        dy =      Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="dy", label="dy"))
 
         # fill histograms
-        tt_sl.fill(events_tt.run3_dnn_moe_hh[mask[0]], weight =events_tt.event_weight[mask[0]])
-        tt_dl.fill(events_tt.run3_dnn_moe_hh[mask[1]], weight =events_tt.event_weight[mask[1]])
-        tt_fh.fill(events_tt.run3_dnn_moe_hh[mask[2]], weight =events_tt.event_weight[mask[2]])
-        dy.fill(events_dy.run3_dnn_moe_hh[mask[3]], weight =events_dy.event_weight[mask[3]])
-        
+        tt_sl.fill(logit(events_tt.run3_dnn_moe_hh[mask[0]]), weight =events_tt.event_weight[mask[0]])
+        tt_dl.fill(logit(events_tt.run3_dnn_moe_hh[mask[1]]), weight =events_tt.event_weight[mask[1]])
+        tt_fh.fill(logit(events_tt.run3_dnn_moe_hh[mask[2]]), weight =events_tt.event_weight[mask[2]])
+        dy.fill(logit(events_dy.run3_dnn_moe_hh[mask[3]]), weight =events_dy.event_weight[mask[3]])
+
         # compute significance
         sig = significance(hh, tt_sl, tt_dl, tt_fh, dy)
         sig_tot = total_significance(sig)
-        # print(f"total significance for {label}: ", round(sig_tot, 2))
-        
-
         # scale the hh histogram up, weighted by the integral of the dy and tt data
         scaling_factor = (hh.values().sum() / (tt_sl.values().sum() + tt_dl.values().sum() + tt_fh.values().sum() + dy.values().sum()))**(-1)
         # plot
@@ -121,27 +122,28 @@ for mask, label in zip(masks, labels):
         ax1.tick_params(axis='y', labelcolor=color)
         ax1.set_xlabel("HH output node")
         ax1.set_ylabel("Number of events")
-        # plt.gca().set_yscale('log')  # Set y-axis to log scale
 
         ax2 = ax1.twinx()
         color = '#4b2e83'
-        ax2.set_ylabel('significance', color=color)  # we already handled the x-label with ax1
+        ax2.set_ylabel('significance', color=color)
         ax2.plot(x, sig, label='significance', color=color, alpha=1.0)
         ax2.tick_params(axis='y', labelcolor=color)
-        
+
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.set_yscale("log")
-        ax2.set_yscale("log") 
+        ax2.set_yscale("log")
+        ax1.set_xscale("linear")
+        ax2.set_xscale("linear")
         fig.tight_layout()
         ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.3, 1))
 
         plt.title(f"{label} channel; total significance = {round(sig_tot, 2)}")
 
 
-        plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_log_sig.png", dpi=300, bbox_inches='tight')
+        plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_log_sig_logit.png", dpi=300, bbox_inches='tight')
         plt.show()
-        
+
         tt_sl.reset()
         tt_dl.reset()
         tt_fh.reset()

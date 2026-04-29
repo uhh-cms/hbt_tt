@@ -36,6 +36,7 @@ def significance(s, *b):
     sig_per_bin = s_count**2 / b_count
     return sig_per_bin
 
+
 sig = significance(hh, tt, dy)
 total_significance = np.sqrt(np.sum(np.square(sig)))
 

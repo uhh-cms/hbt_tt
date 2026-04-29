@@ -15,19 +15,20 @@ n_bins = 60
 eps = 1e-6 # set eps=0 for normal scale
 def logit(x):
     # set this fct to return x for normal scale
-    return np.log((x + eps) / (1 - x + eps))
+    y = np.log((x + eps) / (1 - x + eps))
+    return np.clip(y, -14, 5-eps)
+
 # discard negative values to avoid errors in logit transformation
 events_hh = events_hh[events_hh.run3_dnn_moe_hh > 0]
 events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
 events_dy = events_dy[events_dy.run3_dnn_moe_hh > 0]
 
-# initialize histograms
-hh = Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="hh", label="hh"))
-# fill histograms
+# initialize and fill histograms
+hh = Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="hh", label="hh"))
 hh.fill(logit(events_hh.run3_dnn_moe_hh), weight =events_hh.event_weight)
 
 # plot histograms
-x = np.linspace(0, 1, n_bins + 1)  # bin edges
+x = np.linspace(-14, 5, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
 fig = plt.figure(figsize=(10, 6))
 
@@ -89,10 +90,10 @@ labels = ["etau, res 1b","etau, res 2b", "mutau, res 1b", "mutau, res 2b", "taut
 for mask, label in zip(masks, labels):
     #for scale in ('linear', 'log'):
         # initialize histograms
-        tt_sl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="tt_sl", label="tt_sl"))
-        tt_dl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="tt_dl", label="tt_dl"))
-        tt_fh =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="tt_fh", label="tt_fh"))
-        dy =      Hist(hist.axis.Regular(n_bins, logit(eps), 5, overflow=True, name="dy", label="dy"))
+        tt_sl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt_sl", label="tt_sl"))
+        tt_dl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt_dl", label="tt_dl"))
+        tt_fh =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt_fh", label="tt_fh"))
+        dy =      Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="dy", label="dy"))
 
         # fill histograms
         tt_sl.fill(logit(events_tt.run3_dnn_moe_hh[mask[0]]), weight =events_tt.event_weight[mask[0]])
@@ -111,16 +112,16 @@ for mask, label in zip(masks, labels):
 
         color = 'black'
         bottom = np.zeros_like(x)
-        ax1.bar(x, tt_sl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
+        ax1.bar(x, tt_sl.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
         bottom+=tt_sl.values()
-        ax1.bar(x, tt_dl.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
+        ax1.bar(x, tt_dl.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
         bottom+=tt_dl.values()
-        ax1.bar(x, tt_fh.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic',  edgecolor='black')
+        ax1.bar(x, tt_fh.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic',  edgecolor='black')
         bottom+=tt_fh.values()
-        ax1.bar(x, dy.values(), width=1/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
-        ax1.bar(x, hh.values() * scaling_factor, width=1/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
+        ax1.bar(x, dy.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
+        ax1.bar(x, hh.values() * scaling_factor, width=(logit(eps)-logit(1-eps))/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
         ax1.tick_params(axis='y', labelcolor=color)
-        ax1.set_xlabel("HH output node")
+        ax1.set_xlabel("logit of HH output node")
         ax1.set_ylabel("Number of events")
 
         ax2 = ax1.twinx()

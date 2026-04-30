@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 
 """This script performs a Gen Matching for the b quarks emerging from the tt background.
 """
+n_bins = 20
 
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260429/tt_22pre_v14.parquet")
-events_tt_train = events_tt[:100]
+events_tt_train = events_tt[:100000]
 
 # important columns
 # events_tt.gen_top_b_eta
 # events_tt.gen_top_b_phi
 # events_tt.jet1_eta
 # events_tt.jet1_phi
-
 # events_tt.n_jet
 
 def deltaR(eta1, phi1, eta2, phi2):
@@ -42,10 +42,27 @@ for i in range(len(events_tt_train)):
         delta_rs.append(delta_r1)
         closest_b.append(3)
 
+delta_rs = ak.Array(delta_rs)
+closest_b = ak.Array(closest_b)
 
-from IPython import embed; embed(header="MESSAGE Line 44 | File: genmatching.py")
-# TODO find an alternative to that mask that works
-# mask = ak.any(delta_rs < 0.1)
-# delta_rs = delta_rs[mask]
-# closest_b = closest_b[mask]
+mask = delta_rs < 0.1
+
+delta_rs = delta_rs[mask]
+closest_b = closest_b[mask]
 print(delta_rs)
+
+delr = Hist(hist.axis.Regular(n_bins, 0, 0.1, name="", label="delta_r"))
+delr.fill(delta_rs)
+
+x = np.linspace(0, 0.1, n_bins + 1)  # bin edges
+x = (x[:-1] + x[1:]) / 2  # bin centers
+fig = plt.figure(figsize=(10, 6))
+plt.bar(x, delr.values(), width=(0.1)/n_bins, bottom=None, fill=True,  color='pink', edgecolor='black')#, label=f'hh x ({scaling_factor:.2f})')
+
+plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
+plt.ylabel("Number of events")
+plt.title("Delta R of gen b quark and matched jet")
+
+plt.savefig(f"images/delr_hist", dpi=300, bbox_inches='tight')
+plt.show()
+delr.reset()

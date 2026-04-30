@@ -12,29 +12,31 @@ events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pr
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
 
 
-n_bins = 60
+n_bins = 20
 
 eps = 1e-6 # set eps=0 for normal scale
-def logit(x):
+def stable_logit(x):
     # set this fct to return x for normal scale
     y = np.log((x + eps) / (1 - x + eps))
     return np.clip(y, -14, 5-eps)
-    #return x
+lower_border = -14
+upper_border = 5
+
 # discard negative values to avoid errors in logit transformation
 events_hh = events_hh[events_hh.run3_dnn_moe_hh > 0]
 events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
 events_dy = events_dy[events_dy.run3_dnn_moe_hh > 0]
 
 # initialize histograms
-hh = Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="hh", label="hh"))
-tt = Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt", label="tt"))
-dy = Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="dy", label="dy"))
+hh = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="hh", label="hh"))
+tt = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="tt", label="tt"))
+dy = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="dy", label="dy"))
 
 # first plot: plot all tt background together
 # fill histograms
-hh.fill(logit(events_hh.run3_dnn_moe_hh), weight =events_hh.event_weight)
-tt.fill(logit(events_tt.run3_dnn_moe_hh), weight =events_tt.event_weight)
-dy.fill(logit(events_dy.run3_dnn_moe_hh), weight =events_dy.event_weight)
+hh.fill(stable_logit(events_hh.run3_dnn_moe_hh), weight =events_hh.event_weight)
+tt.fill(stable_logit(events_tt.run3_dnn_moe_hh), weight =events_tt.event_weight)
+dy.fill(stable_logit(events_dy.run3_dnn_moe_hh), weight =events_dy.event_weight)
 
 # significance
 def significance(s, *b):
@@ -53,7 +55,7 @@ total_significance = np.sqrt(np.sum(np.square(sig)))
 
 
 # plot histograms
-x = np.linspace(-14, 5, n_bins + 1)  # bin edges
+x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
 # fig = plt.figure(figsize=(10, 6))
 
@@ -66,9 +68,9 @@ fig.subplots_adjust(right=0.85)
 color = 'black'
 ax1.set_xlabel('HH output node')
 ax1.set_ylabel('Number of events', color=color)
-ax1.bar(x, tt.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=None, alpha=0.5, label='tt', color='violet', edgecolor='black')
-ax1.bar(x, dy.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=tt.values(), alpha=0.5, label='dy', color='red', edgecolor='black')
-ax1.bar(x, hh.values() * scaling_factor, width=(logit(eps)-logit(1-eps))/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
+ax1.bar(x, tt.values(), width=(upper_border - lower_border) / n_bins, bottom=None, alpha=0.5, label='tt', color='violet', edgecolor='black')
+ax1.bar(x, dy.values(), width=(upper_border - lower_border) / n_bins, bottom=tt.values(), alpha=0.5, label='dy', color='red', edgecolor='black')
+ax1.bar(x, hh.values() * scaling_factor, width=(upper_border - lower_border) / n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
 
 ax1.tick_params(axis='y', labelcolor=color)
 
@@ -88,7 +90,7 @@ fig.tight_layout()
 
 ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.45, 1))
 
-plt.title(f"logit of HH output node; total significance = {round(total_significance, 2)}")
+plt.title(f"logit of HH output node; total significance = {round(total_significance, 3)}")
 
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
@@ -104,51 +106,51 @@ tt.reset()
 etau_mask_sl = (events_tt.channel_id == 1) & (events_tt.process_id == 1100)
 etau_mask_dl = (events_tt.channel_id == 1) & (events_tt.process_id == 1200)
 etau_mask_fh = (events_tt.channel_id == 1) & (events_tt.process_id == 1300)
+etau_mask_hh = (events_hh.channel_id == 1)
 
 mutau_mask_sl = (events_tt.channel_id == 2) & (events_tt.process_id == 1100)
 mutau_mask_dl = (events_tt.channel_id == 2) & (events_tt.process_id == 1200)
 mutau_mask_fh = (events_tt.channel_id == 2) & (events_tt.process_id == 1300)
+mutau_mask_hh = (events_hh.channel_id == 2)
 
 tautau_mask_sl = (events_tt.channel_id == 3) & (events_tt.process_id == 1100)
 tautau_mask_dl = (events_tt.channel_id == 3) & (events_tt.process_id == 1200)
 tautau_mask_fh = (events_tt.channel_id == 3) & (events_tt.process_id == 1300)
+tautau_mask_hh = (events_hh.channel_id == 3)
 
 # prepare plotting loop
-masks = [[etau_mask_sl, etau_mask_dl, etau_mask_fh], [mutau_mask_sl, mutau_mask_dl, mutau_mask_fh], [tautau_mask_sl, tautau_mask_dl, tautau_mask_fh]]
+masks = [[etau_mask_sl, etau_mask_dl, etau_mask_fh, etau_mask_hh], [mutau_mask_sl, mutau_mask_dl, mutau_mask_fh, mutau_mask_hh], [tautau_mask_sl, tautau_mask_dl, tautau_mask_fh, tautau_mask_hh]]
 labels = ["etau", "mutau", "tautau"]
 
 
 for mask, label in zip(masks, labels):
     # initialize histograms
-    tt_sl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt", label="tt"))
-    tt_dl =  Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt", label="tt"))
-    tt_fh = Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt", label="tt"))
+    tt_sl =   Hist(hist.axis.Regular(n_bins, -14, 5, name="tt", label="tt"))
+    tt_dl =  Hist(hist.axis.Regular(n_bins, -14, 5, name="tt", label="tt"))
+    tt_fh = Hist(hist.axis.Regular(n_bins, -14, 5, name="tt", label="tt"))
+    hh = Hist(hist.axis.Regular(n_bins, -14, 5, name="hh", label="hh"))
     # fill histograms
-    tt_sl.fill(logit(events_tt.run3_dnn_moe_hh[mask[0]]), weight =events_tt.event_weight[mask[0]])
-    tt_dl.fill(logit(events_tt.run3_dnn_moe_hh[mask[1]]), weight =events_tt.event_weight[mask[1]])
-    tt_fh.fill(logit(events_tt.run3_dnn_moe_hh[mask[2]]), weight =events_tt.event_weight[mask[2]])
+    tt_sl.fill(stable_logit(events_tt.run3_dnn_moe_hh[mask[0]]), weight =events_tt.event_weight[mask[0]])
+    tt_dl.fill(stable_logit(events_tt.run3_dnn_moe_hh[mask[1]]), weight =events_tt.event_weight[mask[1]])
+    tt_fh.fill(stable_logit(events_tt.run3_dnn_moe_hh[mask[2]]), weight =events_tt.event_weight[mask[2]])
+    hh.fill(stable_logit(events_hh.run3_dnn_moe_hh[mask[3]]), weight =events_hh.event_weight[mask[3]])
     # plot
     significance_cat = significance(hh, tt_sl, tt_dl, tt_fh, dy)
     total_significance_cat = np.sqrt(np.sum(np.square(significance_cat)))
-
-    # quick check bc significance looks very similar in every plot
-    # print(label,
-    #   ak.sum(mask[0]),
-    #   ak.sum(mask[1]),
-    #   ak.sum(mask[2]))
-
+    from IPython import embed; embed(header="MESSAGE Line 138 | File: background_overview_sig_logit.py")
     fig, ax1 = plt.subplots(figsize=(9, 5))
     fig.subplots_adjust(right=0.85)
     color = 'black'
     bottom = np.zeros_like(x)
-    ax1.bar(x, tt_sl.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
+    width = 5 + 14
+    ax1.bar(x, tt_sl.values(), width=(width)/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
     bottom+=tt_sl.values()
-    ax1.bar(x, tt_dl.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
+    ax1.bar(x, tt_dl.values(), width=(width)/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
     bottom+=tt_dl.values()
-    ax1.bar(x, tt_fh.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic', edgecolor='black')
+    ax1.bar(x, tt_fh.values(), width=(width)/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic', edgecolor='black')
     bottom+=tt_fh.values()
-    ax1.bar(x, dy.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
-    ax1.bar(x, hh.values() * scaling_factor, width=(logit(eps)-logit(1-eps))/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
+    ax1.bar(x, dy.values(), width=(width)/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
+    ax1.bar(x, hh.values() * scaling_factor, width=(width)/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
     ax1.tick_params(axis='y', labelcolor=color)
     ax1.set_xlabel("HH output node")
     ax1.set_ylabel("Number of events")
@@ -170,7 +172,7 @@ for mask, label in zip(masks, labels):
     ax1.set_yscale("log")
     ax2.set_yscale("log")
     fig.tight_layout()
-    plt.title(f"HH output node for signal and background data, {label} channel; total significance = {round(total_significance_cat, 2)}")
+    plt.title(f"HH output node for signal and background data, {label} channel; total significance = {round(total_significance_cat, 3)}")
     plt.savefig(f"images_hists/hh_output_node_histogram_{label}_logscale_sig_logit.png", dpi=300, bbox_inches='tight')
     plt.show()
     tt.reset()

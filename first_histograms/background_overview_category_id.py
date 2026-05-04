@@ -11,7 +11,7 @@ events_dy = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/dy_22pr
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pre_v14.parquet")  # tt simulation data
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
 
-n_bins = 60
+n_bins = 20
 eps = 1e-6 # set eps=0 for normal scale
 def logit(x):
     # set this fct to return x for normal scale

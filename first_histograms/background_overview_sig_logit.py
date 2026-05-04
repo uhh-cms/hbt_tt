@@ -15,7 +15,7 @@ events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pr
 n_bins = 20
 
 eps = 1e-6 # set eps=0 for normal scale
-def stable_logit(x):
+def stable_logit(x): # TODO change to vincent's version if I want to double check for same values
     # set this fct to return x for normal scale
     y = np.log((x + eps) / (1 - x + eps))
     return np.clip(y, -14, 5-eps)
@@ -23,6 +23,7 @@ lower_border = -14
 upper_border = 5
 
 # discard negative values to avoid errors in logit transformation
+# TODO change to vincent's version (clipping instead of mask) if I want to double check for same values
 events_hh = events_hh[events_hh.run3_dnn_moe_hh > 0]
 events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
 events_dy = events_dy[events_dy.run3_dnn_moe_hh > 0]

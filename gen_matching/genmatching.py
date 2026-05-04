@@ -24,10 +24,14 @@ def deltaR(eta1, phi1, eta2, phi2):
     # Ensure delta_phi is in the range [-pi, pi]
     delta_phi = (delta_phi + np.pi) % (2 * np.pi) - np.pi
     return np.sqrt(delta_eta**2 + delta_phi**2)
+delr_cut = 0.05 # matched only if distance is smaller than delr = 0.05
 
 delta_rs = []
 closest_b = []
+print("Number of events: ", len(events_tt_train))
 for i in range(len(events_tt_train)):
+    if i % (len(events_tt_train) // 5) == 0 and i != 0:
+        print("Processing event", i)
     delta_r1 = deltaR(events_tt_train.gen_top_b_eta[i][0], events_tt_train.gen_top_b_phi[i][0],
                       events_tt_train.jet1_eta[i], events_tt_train.jet1_phi[i])
     delta_r2 = deltaR(events_tt_train.gen_top_b_eta[i][1], events_tt_train.gen_top_b_phi[i][1],
@@ -45,19 +49,19 @@ for i in range(len(events_tt_train)):
 delta_rs = ak.Array(delta_rs)
 closest_b = ak.Array(closest_b)
 
-mask = delta_rs < 0.1
+mask = delta_rs < delr_cut
 
 delta_rs = delta_rs[mask]
 closest_b = closest_b[mask]
 print(delta_rs)
 
-delr = Hist(hist.axis.Regular(n_bins, 0, 0.1, name="", label="delta_r"))
+delr = Hist(hist.axis.Regular(n_bins, 0, delr_cut, name="", label="delta_r"))
 delr.fill(delta_rs)
 
-x = np.linspace(0, 0.1, n_bins + 1)  # bin edges
+x = np.linspace(0, delr_cut, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
 fig = plt.figure(figsize=(10, 6))
-plt.bar(x, delr.values(), width=(0.1)/n_bins, bottom=None, fill=True,  color='pink', edgecolor='black')#, label=f'hh x ({scaling_factor:.2f})')
+plt.bar(x, delr.values(), width=(delr_cut)/n_bins, bottom=None, fill=True,  color='pink', edgecolor='black')#, label=f'hh x ({scaling_factor:.2f})')
 
 plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
 plt.ylabel("Number of events")

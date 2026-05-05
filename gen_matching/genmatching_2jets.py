@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 n_bins = 20
 
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260504/tt_22pre_v14.parquet")
-events_tt_train = events_tt[:1000]
+events_tt_train = events_tt[:100000]
 
 # important columns
 # events_tt_train.bjet_eta
@@ -28,8 +28,9 @@ def deltaR(eta1, phi1, eta2, phi2):
 delr_cut = 0.05 # matched only if distance is smaller than delr = 0.05
 
 delta_rs = []
-
+#TODO loop ausbauen --> stattdessen Funktion deltaR auf ganze Arrays anwenden, um schneller zu sein
 print("Number of events: ", len(events_tt_train))
+#delta_r1 = deltaR(events_tt_train.bjet_eta[:][0], events_tt_train.bjet_phi[:][0],events_tt_train.gen_top_b_eta[:][0], events_tt_train.gen_top_b_phi[:][0])
 for i in range(len(events_tt_train)):
     # instead of looping, next time use events_tt_train.bjet_eta[:,:2] etc and apply function to whole array
     if i % (len(events_tt_train) // 5) == 0 and i != 0:
@@ -37,11 +38,13 @@ for i in range(len(events_tt_train)):
     # match bjet 1 to gen top bs
     delta_r1 = deltaR(events_tt_train.bjet_eta[i][0], events_tt_train.bjet_phi[i][0],
                       events_tt_train.gen_top_b_eta[i][0], events_tt_train.gen_top_b_phi[i][0])
-    delta_r2 = deltaR(events_tt_train.bjet_eta[i][1], events_tt_train.bjet_phi[i][1],
-                      events_tt_train.gen_top_b_eta[i][0], events_tt_train.gen_top_b_phi[i][0])
-    # match bjet2 to gen top bs
-    delta_r3 = deltaR(events_tt_train.bjet_eta[i][0], events_tt_train.bjet_phi[i][0],
+
+    delta_r2 = deltaR(events_tt_train.bjet_eta[i][0], events_tt_train.bjet_phi[i][0],
                       events_tt_train.gen_top_b_eta[i][1], events_tt_train.gen_top_b_phi[i][1])
+    # match bjet2 to gen top bs
+    delta_r3 = deltaR(events_tt_train.bjet_eta[i][1], events_tt_train.bjet_phi[i][1],
+                      events_tt_train.gen_top_b_eta[i][0], events_tt_train.gen_top_b_phi[i][0])
+
     delta_r4 = deltaR(events_tt_train.bjet_eta[i][1], events_tt_train.bjet_phi[i][1],
                       events_tt_train.gen_top_b_eta[i][1], events_tt_train.gen_top_b_phi[i][1])
     # append smallest deltar value
@@ -50,6 +53,8 @@ for i in range(len(events_tt_train)):
 delta_rs = ak.Array(delta_rs)
 
 mask = delta_rs < delr_cut
+from IPython import embed; embed(header="MESSAGE Line 53 | File: genmatching_2jets.py")
+
 
 delta_rs = delta_rs[mask]
 btags_of_matched_events = events_tt_train.bjet_btag[mask]
@@ -107,27 +112,30 @@ x = np.linspace(0, 1, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
 fig = plt.figure(figsize=(10, 6))
 
-for hist, label, color in zip([two_matched_hist, one_matched_hist, no_matched_hist],
+for histogram, label, color in zip([two_matched_hist, one_matched_hist, no_matched_hist],
                              ['Two matched', 'One matched', 'No matched'],
                              ['green', 'orange', 'red']):
+
     plt.bar(
         x,
-        hist.values(),
+        histogram.values(),
         width=(func(eps)-func(endpoint))/n_bins,
         bottom=None,
-        fill=False,
-        label=label,
+        fill=True,
+        alpha=0.5,
+        label=f"{label} gen b jets",
         color=color,
         edgecolor='black'
     )
 
-    plt.xlabel("logit of HH output node")
+    plt.xlabel("HH output node")
     plt.ylabel("Number of events")
 
     plt.title("HH output node for two gen matched b jets")
-    plt.legend(f"{label} b jets")
+    plt.legend()
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
-    plt.show()
-    plt.savefig(f"images/hh_output_{label.replace(' ', '_')}.png", dpi=300, bbox_inches='tight')
 
-    hist.reset()
+    plt.savefig(f"images/hh_output_{label.replace(' ', '_')}.png", dpi=300, bbox_inches='tight')
+    plt.gca().clear()
+
+

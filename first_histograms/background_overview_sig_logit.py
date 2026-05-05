@@ -12,7 +12,7 @@ events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pr
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
 
 
-n_bins = 20
+n_bins = 50
 
 eps = 1e-6 # set eps=0 for normal scale
 def stable_logit(x): # TODO change to vincent's version if I want to double check for same values
@@ -47,7 +47,7 @@ def significance(s, *b):
     s_count = s.values()
     b_count = np.sum([_b.values() for _b in b], axis=0)
 
-    sig_per_bin = s_count**2 / b_count
+    sig_per_bin = s_count**2 / (b_count + eps)
     return sig_per_bin
 
 

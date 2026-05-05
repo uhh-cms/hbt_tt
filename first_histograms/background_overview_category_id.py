@@ -11,7 +11,7 @@ events_dy = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/dy_22pr
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/tt_22pre_v14.parquet")  # tt simulation data
 events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
 
-n_bins = 20
+n_bins = 50
 eps = 1e-6 # set eps=0 for normal scale
 def logit(x):
     # set this fct to return x for normal scale
@@ -24,13 +24,13 @@ events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
 events_dy = events_dy[events_dy.run3_dnn_moe_hh > 0]
 
 # initialize and fill histograms
-hh = Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="hh", label="hh"))
+hh = Hist(hist.axis.Regular(n_bins, -14, 5, name="hh", label="hh"))
 hh.fill(logit(events_hh.run3_dnn_moe_hh), weight =events_hh.event_weight)
 
 # plot histograms
 x = np.linspace(-14, 5, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
-fig = plt.figure(figsize=(10, 6))
+fig = plt.figure(figsize=(9, 5))
 
 def significance(s, *b):
     """
@@ -90,10 +90,10 @@ labels = ["etau, res 1b","etau, res 2b", "mutau, res 1b", "mutau, res 2b", "taut
 for mask, label in zip(masks, labels):
     #for scale in ('linear', 'log'):
         # initialize histograms
-        tt_sl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt_sl", label="tt_sl"))
-        tt_dl =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt_dl", label="tt_dl"))
-        tt_fh =   Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="tt_fh", label="tt_fh"))
-        dy =      Hist(hist.axis.Regular(n_bins, logit(eps), 5, name="dy", label="dy"))
+        tt_sl =   Hist(hist.axis.Regular(n_bins, -14, 5, name="tt_sl", label="tt_sl"))
+        tt_dl =   Hist(hist.axis.Regular(n_bins, -14, 5, name="tt_dl", label="tt_dl"))
+        tt_fh =   Hist(hist.axis.Regular(n_bins, -14, 5, name="tt_fh", label="tt_fh"))
+        dy =      Hist(hist.axis.Regular(n_bins, -14, 5, name="dy", label="dy"))
 
         # fill histograms
         tt_sl.fill(logit(events_tt.run3_dnn_moe_hh[mask[0]]), weight =events_tt.event_weight[mask[0]])
@@ -112,14 +112,14 @@ for mask, label in zip(masks, labels):
 
         color = 'black'
         bottom = np.zeros_like(x)
-        ax1.bar(x, tt_sl.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
+        ax1.bar(x, tt_sl.values(), width=(19)/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
         bottom+=tt_sl.values()
-        ax1.bar(x, tt_dl.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
+        ax1.bar(x, tt_dl.values(), width=(19)/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')
         bottom+=tt_dl.values()
-        ax1.bar(x, tt_fh.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic',  edgecolor='black')
+        ax1.bar(x, tt_fh.values(), width=(19)/n_bins, bottom=bottom, alpha=0.5, label='tt fully hadronic',  edgecolor='black')
         bottom+=tt_fh.values()
-        ax1.bar(x, dy.values(), width=(logit(eps)-logit(1-eps))/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
-        ax1.bar(x, hh.values() * scaling_factor, width=(logit(eps)-logit(1-eps))/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
+        ax1.bar(x, dy.values(), width=(19)/n_bins, bottom=bottom, alpha=0.5, label='dy', color='red', edgecolor='black')
+        ax1.bar(x, hh.values() * scaling_factor, width=(19)/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
         ax1.tick_params(axis='y', labelcolor=color)
         ax1.set_xlabel("logit of HH output node")
         ax1.set_ylabel("Number of events")

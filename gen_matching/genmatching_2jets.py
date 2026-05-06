@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 
 """This script performs a Gen Matching for the b quarks emerging from the tt background.
 """
-n_bins = 20
+n_bins = 50
 
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260504/tt_22pre_v14.parquet")
-events_tt_train = events_tt[:100000]
+events_tt_train = events_tt[events_tt.run3_dnn_moe_hh > 0]#[:100000]
 
 # important columns
 # events_tt_train.bjet_eta
@@ -27,41 +27,47 @@ def deltaR(eta1, phi1, eta2, phi2):
 
 delr_cut = 0.05 # matched only if distance is smaller than delr = 0.05
 
-delta_rs = []
-#TODO loop ausbauen --> stattdessen Funktion deltaR auf ganze Arrays anwenden, um schneller zu sein
-print("Number of events: ", len(events_tt_train))
-#delta_r1 = deltaR(events_tt_train.bjet_eta[:][0], events_tt_train.bjet_phi[:][0],events_tt_train.gen_top_b_eta[:][0], events_tt_train.gen_top_b_phi[:][0])
-for i in range(len(events_tt_train)):
-    # instead of looping, next time use events_tt_train.bjet_eta[:,:2] etc and apply function to whole array
-    if i % (len(events_tt_train) // 5) == 0 and i != 0:
-        print("Processing event", i)
-    # match bjet 1 to gen top bs
-    delta_r1 = deltaR(events_tt_train.bjet_eta[i][0], events_tt_train.bjet_phi[i][0],
-                      events_tt_train.gen_top_b_eta[i][0], events_tt_train.gen_top_b_phi[i][0])
+delta_r1 = deltaR(
+    events_tt_train.bjet_eta[:, 0],
+    events_tt_train.bjet_phi[:, 0],
+    events_tt_train.gen_top_b_eta[:, 0],
+    events_tt_train.gen_top_b_phi[:, 0],
+)
 
-    delta_r2 = deltaR(events_tt_train.bjet_eta[i][0], events_tt_train.bjet_phi[i][0],
-                      events_tt_train.gen_top_b_eta[i][1], events_tt_train.gen_top_b_phi[i][1])
-    # match bjet2 to gen top bs
-    delta_r3 = deltaR(events_tt_train.bjet_eta[i][1], events_tt_train.bjet_phi[i][1],
-                      events_tt_train.gen_top_b_eta[i][0], events_tt_train.gen_top_b_phi[i][0])
+delta_r2 = deltaR(
+    events_tt_train.bjet_eta[:, 0],
+    events_tt_train.bjet_phi[:, 0],
+    events_tt_train.gen_top_b_eta[:, 1],
+    events_tt_train.gen_top_b_phi[:, 1],
+)
 
-    delta_r4 = deltaR(events_tt_train.bjet_eta[i][1], events_tt_train.bjet_phi[i][1],
-                      events_tt_train.gen_top_b_eta[i][1], events_tt_train.gen_top_b_phi[i][1])
-    # append smallest deltar value
-    delta_rs.append([np.minimum(delta_r1, delta_r2), np.minimum(delta_r3, delta_r4)])
+delta_r3 = deltaR(
+    events_tt_train.bjet_eta[:, 1],
+    events_tt_train.bjet_phi[:, 1],
+    events_tt_train.gen_top_b_eta[:, 0],
+    events_tt_train.gen_top_b_phi[:, 0],
+)
 
+delta_r4 = deltaR(
+    events_tt_train.bjet_eta[:, 1],
+    events_tt_train.bjet_phi[:, 1],
+    events_tt_train.gen_top_b_eta[:, 1],
+    events_tt_train.gen_top_b_phi[:, 1],
+)
+# match bjet to smallest distance gen b quark
+min_delr_bjet1 = np.minimum(delta_r1, delta_r2)
+min_delr_bjet2 = np.minimum(delta_r3, delta_r4)
+# merge to one array for min delta r of both bjets
+delta_rs = np.stack([min_delr_bjet1, min_delr_bjet2], axis=1)
 delta_rs = ak.Array(delta_rs)
 
+# matched b jets have a delta r smaller than delr_cut to a gen top b quark
 mask = delta_rs < delr_cut
-from IPython import embed; embed(header="MESSAGE Line 53 | File: genmatching_2jets.py")
-
-
 delta_rs = delta_rs[mask]
 btags_of_matched_events = events_tt_train.bjet_btag[mask]
 # ev_tt_obj_indices = ak.local_index(events_tt_train.bjet_eta)[mask]
 
-print("Delta rs:", delta_rs)
-
+# hist to plot delta r distribution of matched b jets
 delr_hist = ak.flatten(delta_rs, axis=None)
 delr = Hist(hist.axis.Regular(n_bins, 0, delr_cut, name="", label="delta_r"))
 delr.fill(delr_hist)
@@ -88,54 +94,65 @@ one_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(btags_of_matched
 no_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)]
 
 # plot the btag output score hists
-eps = 0#1e-6 # set eps=0 for normal scale
-endpoint = 1#5 # set to 1 for normal scale
+eps = 1e-6 # set eps=0 for normal scale
+startpoint = -14#set to 1 for normal scale
+endpoint = 5 # set to 1 for normal scale
 def logit(x):
     # set this fct to return x for normal scale
     y = np.log((x + eps) / (1 - x + eps))
     return np.clip(y, -14, 5-eps)
 def identity(x):
     return x
-func = identity
+func = logit
 
+# inititalize hists
+events_dy = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/dy_22pre_v14.parquet")  # dy simulation data
+events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pre_v14.parquet")  # hh simulation data
+events_hh = events_hh[events_hh.run3_dnn_moe_hh > 0]
+events_dy = events_dy[events_dy.run3_dnn_moe_hh > 0]
 
-two_matched_hist = Hist(hist.axis.Regular(n_bins, func(eps), endpoint, name="2_matched", label="2_matched"))
-one_matched_hist = Hist(hist.axis.Regular(n_bins, func(eps), endpoint, name="1_matched", label="1_matched"))
-no_matched_hist = Hist(hist.axis.Regular(n_bins, func(eps), endpoint, name="no_matched", label="no_matched"))
+hh =               Hist(hist.axis.Regular(n_bins, startpoint, endpoint, name="hh", label="hh"))
+dy =               Hist(hist.axis.Regular(n_bins, startpoint, endpoint, name="dy", label="dy"))
+two_matched_hist = Hist(hist.axis.Regular(n_bins, startpoint, endpoint, name="2_matched", label="2_matched"))
+one_matched_hist = Hist(hist.axis.Regular(n_bins, startpoint, endpoint, name="1_matched", label="1_matched"))
+no_matched_hist =  Hist(hist.axis.Regular(n_bins, startpoint, endpoint, name="no_matched", label="no_matched"))
 
+# fill hists
+hh.fill(func(events_hh.run3_dnn_moe_hh), weight =events_hh.event_weight)
+dy.fill(func(events_dy.run3_dnn_moe_hh), weight =events_dy.event_weight)
 two_matched_hist.fill(func(two_matched), weight =events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 2)])
 one_matched_hist.fill(func(one_matched), weight =events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 1)])
 no_matched_hist.fill(func(no_matched), weight =events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)])
 
 # plot histograms
-x = np.linspace(0, 1, n_bins + 1)  # bin edges
+x = np.linspace(startpoint, endpoint, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
-fig = plt.figure(figsize=(10, 6))
 
-for histogram, label, color in zip([two_matched_hist, one_matched_hist, no_matched_hist],
-                             ['Two matched', 'One matched', 'No matched'],
-                             ['green', 'orange', 'red']):
+# scale the hh histogram up, weighted by the integral of the dy and tt data
+scaling_factor = (hh.values().sum() / (two_matched_hist.values().sum() + one_matched_hist.values().sum() + no_matched_hist.values().sum() + dy.values().sum()))**(-1)
 
-    plt.bar(
-        x,
-        histogram.values(),
-        width=(func(eps)-func(endpoint))/n_bins,
-        bottom=None,
-        fill=True,
-        alpha=0.5,
-        label=f"{label} gen b jets",
-        color=color,
-        edgecolor='black'
-    )
+fig, ax1 = plt.subplots(figsize=(9, 5))
+fig.subplots_adjust(right=0.85)
 
-    plt.xlabel("HH output node")
-    plt.ylabel("Number of events")
+color = 'black'
+bottom = np.zeros_like(x)
+ax1.set_xlabel('HH output node')
+ax1.set_ylabel('Number of events', color=color)
+ax1.bar(x, no_matched_hist.values(), width=(endpoint - startpoint) / n_bins, bottom=bottom, alpha=0.5, label='tt, no matched b jets', color='violet', edgecolor='black')
+bottom += no_matched_hist.values()
+ax1.bar(x, one_matched_hist.values(), width=(endpoint - startpoint) / n_bins, bottom=bottom, alpha=0.5, label='tt, one matched b jet', color='mediumblue', edgecolor='black')
+bottom += one_matched_hist.values()
+ax1.bar(x, two_matched_hist.values(), width=(endpoint - startpoint) / n_bins, bottom=bottom, alpha=0.5, label='tt, two matched b jets', color='deeppink', edgecolor='black')
+bottom += two_matched_hist.values()
+ax1.bar(x, dy.values(), width=(endpoint - startpoint) / n_bins, bottom=bottom, alpha=0.5, label='dy', color='green', edgecolor='black')
+ax1.bar(x, hh.values() * scaling_factor, width=(endpoint - startpoint) / n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='red', edgecolor='black')
 
-    plt.title("HH output node for two gen matched b jets")
-    plt.legend()
-    fig.tight_layout()  # otherwise the right y-label is slightly clipped
-
-    plt.savefig(f"images/hh_output_{label.replace(' ', '_')}.png", dpi=300, bbox_inches='tight')
-    plt.gca().clear()
-
-
+ax1.tick_params(axis='y', labelcolor=color)
+ax1.get_legend_handles_labels()
+plt.legend()
+ax1.set_yscale("log")
+ax1.set_xscale("linear")
+fig.tight_layout()
+plt.title("HH output node; tt background events split in nb of gen matched b jets")
+plt.savefig("images/tt_genmatched_split_hist_logit", dpi=300, bbox_inches='tight')
+plt.show()

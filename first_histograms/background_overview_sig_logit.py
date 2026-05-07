@@ -16,7 +16,7 @@ n_bins = 50
 
 eps = 1e-6 # set eps=0 for normal scale
 lower_border = -14
-upper_border = 9
+upper_border = 12
 def stable_logit(x): # TODO change to vincent's version if I want to double check for same values
     # set this fct to return x for normal scale
     y = np.log((x + eps) / (1 - x + eps))
@@ -123,7 +123,7 @@ tautau_mask_hh = (events_hh.channel_id == 3)
 # prepare plotting loop
 masks = [[etau_mask_sl, etau_mask_dl, etau_mask_fh, etau_mask_hh], [mutau_mask_sl, mutau_mask_dl, mutau_mask_fh, mutau_mask_hh], [tautau_mask_sl, tautau_mask_dl, tautau_mask_fh, tautau_mask_hh]]
 labels = ["etau", "mutau", "tautau"]
-upper_borders = [8, 8, 7]
+upper_borders = [12, 12, 12]
 
 for mask, label, upper_border in zip(masks, labels, upper_borders):
     # initialize histograms
@@ -143,7 +143,7 @@ for mask, label, upper_border in zip(masks, labels, upper_borders):
     fig.subplots_adjust(right=0.85)
     color = 'black'
     bottom = np.zeros_like(x)
-    width = 5 + 14
+    width = upper_border - lower_border
     ax1.bar(x, tt_sl.values(), width=(width)/n_bins, bottom=bottom, alpha=0.5, label='tt semi-leptonic',  edgecolor='black')
     bottom+=tt_sl.values()
     ax1.bar(x, tt_dl.values(), width=(width)/n_bins, bottom=bottom, alpha=0.5, label='tt di-leptonic',  edgecolor='black')

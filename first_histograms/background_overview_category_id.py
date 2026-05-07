@@ -13,8 +13,9 @@ events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/vincent/hh_22pr
 
 n_bins = 100
 eps = 1e-6 # set eps=0 for normal scale
+eps2 = 1e-1
 lower_border = -14
-upper_border = 8
+upper_border = 12
 def logit(x):
     # set this fct to return x for normal scale
     y = np.log((x + eps) / (1 - x + eps))
@@ -41,7 +42,7 @@ def significance(s, *b):
     s_count = s.values()
     b_count = np.sum([_b.values() for _b in b], axis=0)
 
-    sig_per_bin = s_count**2 / (b_count + eps)
+    sig_per_bin = s_count**2 / (b_count + eps2)
     return abs(sig_per_bin)
 
 def total_significance(s):
@@ -94,7 +95,8 @@ masks = [[etau_mask_res1b_sl, etau_mask_res1b_dl, etau_mask_res1b_fh, etau_mask_
          [tautau_mask_res1b_sl, tautau_mask_res1b_dl, tautau_mask_res1b_fh, tautau_mask_res1b, tautau_mask_res1b_hh],
          [tautau_mask_res2b_sl, tautau_mask_res2b_dl, tautau_mask_res2b_fh, tautau_mask_res2b, tautau_mask_res2b_hh]]
 labels = ["etau, res 1b","etau, res 2b", "mutau, res 1b", "mutau, res 2b", "tautau, res 1b", "tautau, res 2b"]
-upper_borders = [6, 6, 6, 6, 6.7, 6.8]
+upper_borders = [10,11.5,12,12.5,10,11.5]
+# upper_borders = [6, 6, 6, 6, 6.7, 6.8]
 lower_xaxis_borders = [-13, -13, -13.5, -13.5, -9, -9]
 hh.reset()
 
@@ -119,7 +121,7 @@ for mask, label, upper_border, lower_x_border in zip(masks, labels, upper_border
         # scale the hh histogram up, weighted by the integral of the dy and tt data
         scaling_factor = (hh.values().sum() / (tt_sl.values().sum() + tt_dl.values().sum() + tt_fh.values().sum() + dy.values().sum()))**(-1)
         # plot
-        fig, ax1 = plt.subplots(figsize=(9, 5))
+        fig, ax1 = plt.subplots(figsize=(10, 5))
         fig.subplots_adjust(right=0.85)
         color = 'black'
         bottom = np.zeros_like(x)
@@ -153,7 +155,7 @@ for mask, label, upper_border, lower_x_border in zip(masks, labels, upper_border
         fig.tight_layout()
         ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.3, 1))
 
-        plt.title(f"{label} channel; total significance = {round(sig_tot, 4)}")
+        plt.title(f"{label} channel")
 
 
         plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_log_sig_logit.png", dpi=300, bbox_inches='tight')

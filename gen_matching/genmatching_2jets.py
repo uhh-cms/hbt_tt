@@ -96,11 +96,14 @@ no_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(btags_of_matched_
 # plot the btag output score hists
 eps = 1e-6 # set eps=0 for normal scale
 lower_border = -14# set to 0 for lin scale
-upper_border = 9# set to 1 for lin scale
+upper_border = 12# set to 1 for lin scale
 def logit(x):
     # set this fct to return x for normal scale
     y = np.log((x + eps) / (1 - x + eps))
     return np.clip(y, lower_border, upper_border-eps)
+def inverse_logit(y):
+    x = 1 / (1 + np.exp(-y))
+    return np.clip(x, eps, 1 - eps)
 def identity(x):
     return x
 func = logit
@@ -138,11 +141,11 @@ color = 'black'
 bottom = np.zeros_like(x)
 ax1.set_xlabel('HH output node')
 ax1.set_ylabel('Number of events', color=color)
-ax1.bar(x, no_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, no matched b jets', color='violet', edgecolor='black')
+ax1.bar(x, no_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, no b tagged b jets', color='violet', edgecolor='black')
 bottom += no_matched_hist.values()
-ax1.bar(x, one_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, one matched b jet', color='mediumblue', edgecolor='black')
+ax1.bar(x, one_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, one b tagged b jet', color='mediumblue', edgecolor='black')
 bottom += one_matched_hist.values()
-ax1.bar(x, two_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, two matched b jets', color='deeppink', edgecolor='black')
+ax1.bar(x, two_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, two b tagged b jets', color='deeppink', edgecolor='black')
 bottom += two_matched_hist.values()
 ax1.bar(x, dy.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='dy', color='green', edgecolor='black')
 ax1.bar(x, hh.values() * scaling_factor, width=(upper_border - lower_border) / n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='red', edgecolor='black')
@@ -154,6 +157,83 @@ ax1.set_yscale("log")
 ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 fig.tight_layout()
-plt.title("HH output node; tt background events split in nb of gen matched b jets")
+plt.title("HH output node; tt background events split in nb of b tagged b jets")
 plt.savefig("images/tt_genmatched_split_hist_logit", dpi=300, bbox_inches='tight')
 plt.show()
+
+# define three event classes and weights
+events_two_matched = events_tt_train[ak.where(ak.count(btags_of_matched_events, axis = 1) == 2)]
+events_one_matched = events_tt_train[ak.where(ak.count(btags_of_matched_events, axis = 1) == 1)]
+events_no_matched = events_tt_train[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)]
+weight_2matched = events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 2)]
+weight_1matched = events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 1)]
+weight_0matched = events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)]
+
+tautau_mask_res1b_tt2 = ak.any(events_two_matched.category_ids == 203, axis = 1)
+tautau_mask_res1b_tt1 = ak.any(events_one_matched.category_ids == 203, axis = 1)
+tautau_mask_res1b_tt0 = ak.any(events_no_matched.category_ids == 203, axis = 1)
+tautau_mask_res1b_dy = ak.any(events_dy.category_ids == 203, axis = 1)
+tautau_mask_res1b_hh = ak.any(events_hh.category_ids == 203, axis = 1)
+
+tautau_mask_res2b_tt2 = ak.any(events_two_matched.category_ids == 207, axis = 1)
+tautau_mask_res2b_tt1 = ak.any(events_one_matched.category_ids == 207, axis = 1)
+tautau_mask_res2b_tt0 = ak.any(events_no_matched.category_ids == 207, axis = 1)
+tautau_mask_res2b_dy = ak.any(events_dy.category_ids == 207, axis = 1)
+tautau_mask_res2b_hh = ak.any(events_hh.category_ids == 207, axis = 1)
+
+masks = [[tautau_mask_res1b_tt2, tautau_mask_res1b_tt1, tautau_mask_res1b_tt0, tautau_mask_res1b_dy, tautau_mask_res1b_hh],
+         [tautau_mask_res2b_tt2, tautau_mask_res2b_tt1, tautau_mask_res2b_tt0, tautau_mask_res2b_dy, tautau_mask_res2b_hh]]
+labels = ["tautau, res 1b", "tautau, res 2b"]
+
+for mask, label in zip(masks, labels):
+    upper_border = 11
+    lower_border = -10
+    x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
+    x = (x[:-1] + x[1:]) / 2  # bin centers
+    # initialize histograms
+    hh =               Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="hh", label="hh"))
+    dy =               Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="dy", label="dy"))
+    two_matched_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="2_matched", label="2_matched"))
+    one_matched_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="1_matched", label="1_matched"))
+    no_matched_hist =  Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="no_matched", label="no_matched"))
+
+    # fill hists
+    two_matched_hist.fill(func(two_matched[mask[0]]), weight=weight_2matched[mask[0]])
+    one_matched_hist.fill(func(one_matched[mask[1]]), weight=weight_1matched[mask[1]])
+    no_matched_hist.fill(func(no_matched[mask[2]]), weight=weight_0matched[mask[2]])
+    dy.fill(func(events_dy.run3_dnn_moe_hh[mask[3]]), weight =events_dy.event_weight[mask[3]])
+    hh.fill(func(events_hh.run3_dnn_moe_hh[mask[4]]), weight =events_hh.event_weight[mask[4]])
+    # scale the hh histogram up, weighted by the integral of the dy and tt data
+    scaling_factor = (hh.values().sum() / (two_matched_hist.values().sum() + one_matched_hist.values().sum() + no_matched_hist.values().sum() + dy.values().sum()))**(-1)
+    # plot
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    fig.subplots_adjust(right=0.85)
+    color = 'black'
+    bottom = np.zeros_like(x)
+    ax1.bar(x, two_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color="deeppink", label='tt, two b tagged b jets',  edgecolor='black')
+    bottom+=two_matched_hist.values()
+    ax1.bar(x, one_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='mediumblue', label='tt, one b tagged b jet',  edgecolor='black')
+    bottom+=one_matched_hist.values()
+    ax1.bar(x, no_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='violet', label='tt, no b tagged b jets',  edgecolor='black')
+    bottom+=no_matched_hist.values()
+    ax1.bar(x, dy.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='green', label='dy', edgecolor='black')
+    ax1.bar(x, hh.values() * scaling_factor, width=(22)/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax1.set_xlabel("logit of HH output node")
+    ax1.set_ylabel("Number of events")
+    ax1.set_ylim(bottom=1e-1)
+    ax1.set_xlim(left=lower_border)
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    ax1.set_yscale("log")
+    fig.tight_layout()
+    plt.legend()
+    plt.title(f"{label} channel; tt background events split in nb of b tagged b jets")
+    plt.savefig(f"images/tt_genmatched_{label}", dpi=300, bbox_inches='tight')
+    plt.show()
+
+    two_matched_hist.reset()
+    one_matched_hist.reset()
+    no_matched_hist.reset()
+    dy.reset()
+    hh.reset()

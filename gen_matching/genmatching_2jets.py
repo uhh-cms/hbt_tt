@@ -25,7 +25,7 @@ def deltaR(eta1, phi1, eta2, phi2):
     delta_phi = (delta_phi + np.pi) % (2 * np.pi) - np.pi
     return np.sqrt(delta_eta**2 + delta_phi**2)
 
-delr_cut = 0.05 # matched only if distance is smaller than delr = 0.05
+delr_cut = 0.1 # matched only if distance is smaller than delr = 0.05
 
 delta_r1 = deltaR(
     events_tt_train.bjet_eta[:, 0],
@@ -64,7 +64,6 @@ delta_rs = ak.Array(delta_rs)
 # matched b jets have a delta r smaller than delr_cut to a gen top b quark
 mask = delta_rs < delr_cut
 delta_rs = delta_rs[mask]
-btags_of_matched_events = events_tt_train.bjet_btag[mask]
 # ev_tt_obj_indices = ak.local_index(events_tt_train.bjet_eta)[mask]
 
 # hist to plot delta r distribution of matched b jets
@@ -75,23 +74,23 @@ delr.fill(delr_hist)
 x = np.linspace(0, delr_cut, n_bins + 1)  # bin edges
 x = (x[:-1] + x[1:]) / 2  # bin centers
 fig = plt.figure(figsize=(10, 6))
-plt.bar(x, delr.values(), width=(delr_cut)/n_bins, bottom=None, fill=True,  color='pink', edgecolor='black')#, label=f'hh x ({scaling_factor:.2f})')
+plt.bar(x, delr.values(), width=(delr_cut)/n_bins, bottom=None, fill=True,  color='pink', edgecolor='black')
 
 plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
 plt.ylabel("Number of events")
 plt.title("Delta R of both gen b jets with matched gen top b quark")
 
-plt.savefig(f"images/delr_2jets_hist", dpi=300, bbox_inches='tight')
+plt.savefig(f"images/delr_2jets_delrcut_hist", dpi=300, bbox_inches='tight')
 plt.show()
 delr.reset()
 
 # define three event classes
 # 1: both b jets matched to gen top b quarks
-two_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(btags_of_matched_events, axis = 1) == 2)]
+two_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(delta_rs , axis = 1) == 2)]
 # 2: only one b jet matched to gen top b quark
-one_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(btags_of_matched_events, axis = 1) == 1)]
+one_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(delta_rs, axis = 1) == 1)]
 # 3: no b jet matched to gen top b quark
-no_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)]
+no_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(delta_rs, axis = 1) == 0)]
 
 # plot the btag output score hists
 eps = 1e-6 # set eps=0 for normal scale
@@ -123,9 +122,9 @@ no_matched_hist =  Hist(hist.axis.Regular(n_bins, lower_border, upper_border, na
 # fill hists
 hh.fill(func(events_hh.run3_dnn_moe_hh), weight =events_hh.event_weight)
 dy.fill(func(events_dy.run3_dnn_moe_hh), weight =events_dy.event_weight)
-two_matched_hist.fill(func(two_matched), weight =events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 2)])
-one_matched_hist.fill(func(one_matched), weight =events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 1)])
-no_matched_hist.fill(func(no_matched), weight =events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)])
+two_matched_hist.fill(func(two_matched), weight =events_tt_train.event_weight[ak.where(ak.count(delta_rs, axis = 1) == 2)])
+one_matched_hist.fill(func(one_matched), weight =events_tt_train.event_weight[ak.where(ak.count(delta_rs, axis = 1) == 1)])
+no_matched_hist.fill(func(no_matched), weight =events_tt_train.event_weight[ak.where(ak.count(delta_rs, axis = 1) == 0)])
 
 # plot histograms
 x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
@@ -141,11 +140,11 @@ color = 'black'
 bottom = np.zeros_like(x)
 ax1.set_xlabel('HH output node')
 ax1.set_ylabel('Number of events', color=color)
-ax1.bar(x, no_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, no b tagged b jets', color='violet', edgecolor='black')
+ax1.bar(x, no_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, no matched b jets', color='violet', edgecolor='black')
 bottom += no_matched_hist.values()
-ax1.bar(x, one_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, one b tagged b jet', color='mediumblue', edgecolor='black')
+ax1.bar(x, one_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, one matched b jet', color='mediumblue', edgecolor='black')
 bottom += one_matched_hist.values()
-ax1.bar(x, two_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, two b tagged b jets', color='deeppink', edgecolor='black')
+ax1.bar(x, two_matched_hist.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='tt, two matched b jets', color='deeppink', edgecolor='black')
 bottom += two_matched_hist.values()
 ax1.bar(x, dy.values(), width=(upper_border - lower_border) / n_bins, bottom=bottom, alpha=0.5, label='dy', color='green', edgecolor='black')
 ax1.bar(x, hh.values() * scaling_factor, width=(upper_border - lower_border) / n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='red', edgecolor='black')
@@ -157,17 +156,43 @@ ax1.set_yscale("log")
 ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 fig.tight_layout()
-plt.title("HH output node; tt background events split in nb of b tagged b jets")
-plt.savefig("images/tt_genmatched_split_hist_logit", dpi=300, bbox_inches='tight')
+plt.title(f"HH output node; tt background events split in nb of matched b jets, matching criterion: $\Delta R < {delr_cut}$")
+plt.savefig("images/tt_genmatched_split_hist_delrcat", dpi=300, bbox_inches='tight')
 plt.show()
+# plot a hist with ALL delr values to find a good del value for a cut
+all_delrs = ak.concatenate([delta_r1,
+                            delta_r2,
+                            delta_r3,
+                            delta_r4])
 
+alldelr_max = 4.5
+alldelr_nbins = 100
+
+alldelr = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R"))
+alldelr.fill(all_delrs)
+
+x = np.linspace(0, alldelr_max, alldelr_nbins + 1)  # bin edges
+x = (x[:-1] + x[1:]) / 2  # bin centers
+xticks = (0, 0.25, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5)
+fig = plt.figure(figsize=(10, 6))
+plt.bar(x, alldelr.values(), width=(alldelr_max)/alldelr_nbins, bottom=None, fill=True,  color='pink', edgecolor='black')
+plt.xticks(xticks)
+plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
+plt.ylabel("Number of events")
+plt.title("Delta R of all b jets with gen top b quarks")
+
+plt.savefig(f"images/alldelrs_bjets_distribution", dpi=300, bbox_inches='tight')
+plt.show()
+alldelr.reset()
+
+# plot the NN output node hists
 # define three event classes and weights
-events_two_matched = events_tt_train[ak.where(ak.count(btags_of_matched_events, axis = 1) == 2)]
-events_one_matched = events_tt_train[ak.where(ak.count(btags_of_matched_events, axis = 1) == 1)]
-events_no_matched = events_tt_train[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)]
-weight_2matched = events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 2)]
-weight_1matched = events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 1)]
-weight_0matched = events_tt_train.event_weight[ak.where(ak.count(btags_of_matched_events, axis = 1) == 0)]
+events_two_matched = events_tt_train[ak.where(ak.count(delta_rs, axis = 1) == 2)]
+events_one_matched = events_tt_train[ak.where(ak.count(delta_rs, axis = 1) == 1)]
+events_no_matched = events_tt_train[ak.where(ak.count(delta_rs, axis = 1) == 0)]
+weight_2matched = events_tt_train.event_weight[ak.where(ak.count(delta_rs, axis = 1) == 2)]
+weight_1matched = events_tt_train.event_weight[ak.where(ak.count(delta_rs, axis = 1) == 1)]
+weight_0matched = events_tt_train.event_weight[ak.where(ak.count(delta_rs, axis = 1) == 0)]
 
 tautau_mask_res1b_tt2 = ak.any(events_two_matched.category_ids == 203, axis = 1)
 tautau_mask_res1b_tt1 = ak.any(events_one_matched.category_ids == 203, axis = 1)
@@ -210,11 +235,11 @@ for mask, label in zip(masks, labels):
     fig.subplots_adjust(right=0.85)
     color = 'black'
     bottom = np.zeros_like(x)
-    ax1.bar(x, two_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color="deeppink", label='tt, two b tagged b jets',  edgecolor='black')
+    ax1.bar(x, two_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color="deeppink", label='tt, two matched b jets',  edgecolor='black')
     bottom+=two_matched_hist.values()
-    ax1.bar(x, one_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='mediumblue', label='tt, one b tagged b jet',  edgecolor='black')
+    ax1.bar(x, one_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='mediumblue', label='tt, one matched b jet',  edgecolor='black')
     bottom+=one_matched_hist.values()
-    ax1.bar(x, no_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='violet', label='tt, no b tagged b jets',  edgecolor='black')
+    ax1.bar(x, no_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='violet', label='tt, no matched b jets',  edgecolor='black')
     bottom+=no_matched_hist.values()
     ax1.bar(x, dy.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='green', label='dy', edgecolor='black')
     ax1.bar(x, hh.values() * scaling_factor, width=(22)/n_bins, bottom=None, fill=False, label=f'hh x ({scaling_factor:.2f})', color='green', edgecolor='black')
@@ -228,8 +253,8 @@ for mask, label in zip(masks, labels):
     ax1.set_yscale("log")
     fig.tight_layout()
     plt.legend()
-    plt.title(f"{label} channel; tt background events split in nb of b tagged b jets")
-    plt.savefig(f"images/tt_genmatched_{label}", dpi=300, bbox_inches='tight')
+    plt.title(f"{label} channel; tt background events split in nb of matched b jets, matching criterion: $\Delta R < {delr_cut}$")
+    plt.savefig(f"images/tt_genmatched_{label}__delrcat", dpi=300, bbox_inches='tight')
     plt.show()
 
     two_matched_hist.reset()

@@ -49,7 +49,7 @@ def significance(s, *b):
     b_count = np.sum([_b.values() for _b in b], axis=0)
 
     sig_per_bin = s_count**2 / (b_count + eps)
-    return sig_per_bin
+    return np.sqrt(np.abs(sig_per_bin))
 
 
 sig = significance(hh, tt, dy)
@@ -79,7 +79,7 @@ ax1.tick_params(axis='y', labelcolor=color)
 ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
 color = '#4b2e83'
-ax2.set_ylabel('significance', color=color)  # we already handled the x-label with ax1
+ax2.set_ylabel(r'significance $\frac{S}{\sqrt{B}}$', color=color)  # we already handled the x-label with ax1
 ax2.plot(x, sig, label='significance', color=color, alpha=1.0)
 ax2.tick_params(axis='y', labelcolor=color)
 
@@ -160,8 +160,8 @@ for mask, label, upper_border in zip(masks, labels, upper_borders):
     ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
     color = '#4b2e83'
-    ax2.set_ylabel('significance', color=color)  # we already handled the x-label with ax1
-    ax2.plot(x, significance_cat, label='significance', color=color, alpha=1.0)
+    ax2.set_ylabel(r'significance$', color=color)  # we already handled the x-label with ax1
+    ax2.plot(x, significance_cat, label=r'significance $\frac{S}{\sqrt{B}}$', color=color, alpha=1.0)
 
     ax2.tick_params(axis='y', labelcolor=color)
 

@@ -43,7 +43,7 @@ def significance(s, *b):
     b_count = np.sum([_b.values() for _b in b], axis=0)
 
     sig_per_bin = s_count**2 / (b_count + eps2)
-    return abs(sig_per_bin)
+    return np.sqrt(np.abs(sig_per_bin))
 
 def total_significance(s):
     return np.sqrt(np.sum(np.square(s)))
@@ -142,7 +142,7 @@ for mask, label, upper_border, lower_x_border in zip(masks, labels, upper_border
 
         ax2 = ax1.twinx()
         color = '#4b2e83'
-        ax2.set_ylabel('significance', color=color)
+        ax2.set_ylabel(r'significance $ \frac{S}{\sqrt{B}}$', color=color)
         ax2.plot(x, sig, label='significance', color=color, alpha=1.0)
         ax2.tick_params(axis='y', labelcolor=color)
 
@@ -155,7 +155,7 @@ for mask, label, upper_border, lower_x_border in zip(masks, labels, upper_border
         fig.tight_layout()
         ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.3, 1))
 
-        plt.title(f"{label} channel")
+        plt.title(f"{label} channel, total significance = {sig_tot:.4f}")
 
 
         plt.savefig(f"images_category_id/hh_output_node_histogram_{label}_log_sig_logit.png", dpi=300, bbox_inches='tight')

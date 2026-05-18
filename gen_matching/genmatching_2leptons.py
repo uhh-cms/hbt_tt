@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 n_bins = 50
 
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260504/tt_22pre_v14.parquet")
+# events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/tt_22pre_v14.parquet")
 events_tt_train = events_tt[events_tt.run3_dnn_moe_hh > 0]#[:100000]
 
 # important columns
@@ -27,7 +28,7 @@ def deltaR(eta1, phi1, eta2, phi2):
     delta_phi = (delta_phi + np.pi) % (2 * np.pi) - np.pi
     return np.sqrt(delta_eta**2 + delta_phi**2)
 
-delr_cut = 0.1 # matched only if distance is smaller than delr = 0.05
+delr_cut = 0.3 # matched only if distance is smaller than delr_cut
 # emu gen matching
 delr1_emu = deltaR(
     events_tt_train.emu_eta[:],
@@ -107,16 +108,20 @@ alldelr.reset()
 ##########################################################################################################
 # apply delr cut to define matched taus
 # match emu to smallest distance gen top W children
-min_delr_emu1 = np.minimum(delr1_emu, delr2_emu)
-min_delr_emu2 = np.minimum(delr3_emu, delr4_emu)
-min_delr_emu = np.minimum(min_delr_emu1, min_delr_emu2)
-delta_rs_emu = ak.Array(min_delr_emu)
+# min_delr_emu1 = np.minimum(delr1_emu, delr2_emu)
+# min_delr_emu2 = np.minimum(delr3_emu, delr4_emu)
+# min_delr_emu = np.minimum(min_delr_emu1, min_delr_emu2)
+# delta_rs_emu = ak.Array(min_delr_emu)
 
 # match tau to smallest distance gen top W children
 min_delr_tau1 = np.minimum(delr1_tau, delr2_tau)
 min_delr_tau2 = np.minimum(delr3_tau, delr4_tau)
 min_delr_tau = np.minimum(min_delr_tau1, min_delr_tau2) # matched tau events with only one entry
 delta_rs_tau = ak.Array(min_delr_tau)
+
+# matched taus have a delta r smaller than delr_cut to a gen W children
+mask = delta_rs_tau < delr_cut
+delta_rs_tau = delta_rs_tau[mask]
 
 # plot delr distribution
 delr_hist = ak.flatten(delta_rs_tau, axis=None)
@@ -136,6 +141,7 @@ plt.savefig(f"images_leptons/delr_tau_distribution", dpi=300, bbox_inches='tight
 plt.show()
 delr.reset()
 
+##################################################################################################################
 # define three classes of tt bg
 # 1: both b jets matched to gen top b quarks
 two_matched = events_tt_train.run3_dnn_moe_hh[ak.where(ak.count(delta_rs_tau , axis = 1) == 2)]
@@ -291,50 +297,38 @@ for mask, label in zip(masks, labels):
 #############################################################################################################################
 ################################################################################################################################
 # do the same with events_tt_train.tau_genPartFlav on x axis instead of NN output score
-# weight_2matched = events_tt_train.event_weight[ak.where(ak.count(delta_rs_tau, axis = 1) == 2)]
-# weight_1matched = events_tt_train.event_weight[ak.where(ak.count(delta_rs_tau, axis = 1) == 1)]
-# weight_0matched = events_tt_train.event_weight[ak.where(ak.count(delta_rs_tau, axis = 1) == 0)]
-for mask, label in zip(masks, labels):
-    upper_border = 11
-    lower_border = -10
-    x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
-    x = (x[:-1] + x[1:]) / 2  # bin centers
-    # initialize histograms
-    two_matched_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="2_matched", label="2_matched"))
-    one_matched_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="1_matched", label="1_matched"))
-    no_matched_hist =  Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="no_matched", label="no_matched"))
-    from IPython import embed; embed(header="MESSAGE Line 303 | File: genmatching_2leptons.py")
-    # fill hists
-    #TODO Problem: tau_genPartFlav is a tuple, so len(ak.flatten(tau_genPartFlav)) is not the same as len(weights)
-    two_matched_hist.fill(func(ak.flatten(events_two_matched.tau_genPartFlav[mask[0]])), weight=weight_2matched[mask[0]])
-    one_matched_hist.fill(func(ak.flatten(events_one_matched.tau_genPartFlav[mask[1]])), weight=weight_1matched[mask[1]])
-    no_matched_hist.fill(func(ak.flatten(events_no_matched.tau_genPartFlav[mask[2]])), weight=weight_0matched[mask[2]])
-    # scale the hh histogram up, weighted by the integral of the dy and tt data
-    # plot
-    fig, ax1 = plt.subplots(figsize=(10, 5))
-    fig.subplots_adjust(right=0.85)
-    color = 'black'
-    bottom = np.zeros_like(x)
-    ax1.bar(x, two_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color="deeppink", label='tt, two matched b jets',  edgecolor='black')
-    bottom+=two_matched_hist.values()
-    ax1.bar(x, one_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='mediumblue', label='tt, one matched b jet',  edgecolor='black')
-    bottom+=one_matched_hist.values()
-    ax1.bar(x, no_matched_hist.values(), width=(22)/n_bins, bottom=bottom, alpha=0.5, color='violet', label='tt, no matched b jets',  edgecolor='black')
-    bottom+=no_matched_hist.values()
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.set_xlabel("Tau_genPartFlav")
-    ax1.set_ylabel("Number of events")
-    # ax1.set_ylim(bottom=1e-1)
-    # ax1.set_xlim(left=lower_border)
+# plot bar chart for origin of gen matched taus
+mask = delta_rs_tau < delr_cut
+for hh_cut, label in zip([0, 0.5, 0.7, 0.9], ["none", "loose", "tight", "very tight"]):
+    matched_events = events_tt_train[ak.flatten(mask)]
+    events_tt_cut = matched_events[matched_events.run3_dnn_moe_hh > hh_cut]
 
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    ax1.set_yscale("log")
-    fig.tight_layout()
-    plt.legend()
-    plt.title(f"{label} channel; tt background events split in nb of matched taus, matching criterion: $\Delta R < {delr_cut}$")
-    plt.savefig(f"images_leptons/tt_genmatched_taus_{label}", dpi=300, bbox_inches='tight')
+    matched_weights = events_tt_train.event_weight[ak.flatten(mask)]
+    matched_weights_cut = matched_weights[events_tt_cut.run3_dnn_moe_hh > hh_cut]
+
+    # weights in the correct shape for np.bincount
+    weights_2d = ak.zeros_like(events_tt_cut.tau_genPartFlav)+matched_weights_cut
+    binned_matched = np.bincount(ak.to_numpy(ak.flatten(events_tt_cut.tau_genPartFlav)), weights=ak.flatten(weights_2d))
+
+    # plot
+    x = np.arange(6)
+    labels = ["Unknown",
+            "Prompt e",
+            r"Prompt \mu",
+            r"$\tau_e$",
+            r"$\tau_\mu$",
+            r"$\tau_h$"]
+    plt.figure(figsize=(10, 6))
+    plt.bar(x, binned_matched, color='blueviolet', alpha=0.5, edgecolor='black')
+    plt.xlabel("origin")
+    plt.ylabel("Number of events")
+    plt.title(f"Origin of gen matched taus; HH output node wp: {label} ({hh_cut})")
+    plt.xticks(x, labels, rotation=45)
+    plt.yscale('linear')
+    plt.savefig(f"images_leptons/origin_genmatched_taus_{label}", dpi=300, bbox_inches='tight')
     plt.show()
 
-    two_matched_hist.reset()
-    one_matched_hist.reset()
-    no_matched_hist.reset()
+
+
+
+

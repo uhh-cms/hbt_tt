@@ -25,7 +25,7 @@ def deltaR(eta1, phi1, eta2, phi2):
     delta_phi = (delta_phi + np.pi) % (2 * np.pi) - np.pi
     return np.sqrt(delta_eta**2 + delta_phi**2)
 
-delr_cut = 0.1 # matched only if distance is smaller than delr = 0.05
+delr_cut = 0.4 # matched only if distance is smaller than delr = 0.05
 
 delta_r1 = deltaR(
     events_tt_train.bjet_eta[:, 0],

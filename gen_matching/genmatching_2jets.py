@@ -64,7 +64,6 @@ delta_rs = ak.Array(delta_rs)
 # matched b jets have a delta r smaller than delr_cut to a gen top b quark
 mask = delta_rs < delr_cut
 delta_rs = delta_rs[mask]
-# ev_tt_obj_indices = ak.local_index(events_tt_train.bjet_eta)[mask]
 
 # hist to plot delta r distribution of matched b jets
 delr_hist = ak.flatten(delta_rs, axis=None)
@@ -80,7 +79,7 @@ plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
 plt.ylabel("Number of events")
 plt.title("Delta R of both gen b jets with matched gen top b quark")
 
-plt.savefig(f"images/delr_2jets_delrcut_hist", dpi=300, bbox_inches='tight')
+plt.savefig(f"images_bjets/delr_2jets_delrcut_hist", dpi=300, bbox_inches='tight')
 plt.show()
 delr.reset()
 
@@ -157,7 +156,7 @@ ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 fig.tight_layout()
 plt.title(f"HH output node; tt background events split in nb of matched b jets, matching criterion: $\Delta R < {delr_cut}$")
-plt.savefig("images/tt_genmatched_split_hist_delrcat", dpi=300, bbox_inches='tight')
+plt.savefig("images_bjets/tt_genmatched_split_hist_delrcat", dpi=300, bbox_inches='tight')
 plt.show()
 # plot a hist with ALL delr values to find a good del value for a cut
 all_delrs = ak.concatenate([delta_r1,
@@ -181,7 +180,7 @@ plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
 plt.ylabel("Number of events")
 plt.title("Delta R of all b jets with gen top b quarks")
 
-plt.savefig(f"images/alldelrs_bjets_distribution", dpi=300, bbox_inches='tight')
+plt.savefig(f"images_bjets/alldelrs_bjets_distribution", dpi=300, bbox_inches='tight')
 plt.show()
 alldelr.reset()
 
@@ -254,7 +253,7 @@ for mask, label in zip(masks, labels):
     fig.tight_layout()
     plt.legend()
     plt.title(f"{label} channel; tt background events split in nb of matched b jets, matching criterion: $\Delta R < {delr_cut}$")
-    plt.savefig(f"images/tt_genmatched_{label}__delrcat", dpi=300, bbox_inches='tight')
+    plt.savefig(f"images_bjets/tt_genmatched_{label}__delrcat", dpi=300, bbox_inches='tight')
     plt.show()
 
     two_matched_hist.reset()

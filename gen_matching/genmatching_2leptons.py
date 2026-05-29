@@ -10,7 +10,7 @@ n_bins = 50
 
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260504/tt_22pre_v14.parquet")
 # events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/tt_22pre_v14.parquet")
-events_tt_train = events_tt[events_tt.run3_dnn_moe_hh > 0]#[:100000]
+events_tt_train = events_tt[events_tt.run3_dnn_moe_hh > 0][:100]
 
 # important columns
 # events_tt_train.gen_top_w_children_eta
@@ -20,7 +20,8 @@ events_tt_train = events_tt[events_tt.run3_dnn_moe_hh > 0]#[:100000]
 # events_tt_train.tau_eta
 # events_tt_train.tau_phi
 # events_tt_train.tau_genPartFlav
-
+print(events_tt_train.tau_eta)
+from IPython import embed; embed(header="MESSAGE Line 23 | File: genmatching_2leptons.py")
 def deltaR(eta1, phi1, eta2, phi2):
     delta_eta = eta2 - eta1
     delta_phi = phi2 - phi1
@@ -30,30 +31,30 @@ def deltaR(eta1, phi1, eta2, phi2):
 
 delr_cut = 0.3 # matched only if distance is smaller than delr_cut
 # emu gen matching
-delr1_emu = deltaR(
-    events_tt_train.emu_eta[:],
-    events_tt_train.emu_phi[:],
-    events_tt_train.gen_top_w_children_eta[:, 0, 0],
-    events_tt_train.gen_top_w_children_phi[:, 0, 0],
-)
-delr2_emu = deltaR(
-    events_tt_train.emu_eta[:],
-    events_tt_train.emu_phi[:],
-    events_tt_train.gen_top_w_children_eta[:, 0, 1],
-    events_tt_train.gen_top_w_children_phi[:, 0, 1],
-)
-delr3_emu = deltaR(
-    events_tt_train.emu_eta[:],
-    events_tt_train.emu_phi[:],
-    events_tt_train.gen_top_w_children_eta[:, 1, 0],
-    events_tt_train.gen_top_w_children_phi[:, 1, 0],
-)
-delr4_emu = deltaR(
-    events_tt_train.emu_eta[:],
-    events_tt_train.emu_phi[:],
-    events_tt_train.gen_top_w_children_eta[:, 1, 1],
-    events_tt_train.gen_top_w_children_phi[:, 1, 1],
-)
+# delr1_emu = deltaR(
+#     events_tt_train.emu_eta[:],
+#     events_tt_train.emu_phi[:],
+#     events_tt_train.gen_top_w_children_eta[:, 0, 0],
+#     events_tt_train.gen_top_w_children_phi[:, 0, 0],
+# )
+# delr2_emu = deltaR(
+#     events_tt_train.emu_eta[:],
+#     events_tt_train.emu_phi[:],
+#     events_tt_train.gen_top_w_children_eta[:, 0, 1],
+#     events_tt_train.gen_top_w_children_phi[:, 0, 1],
+# )
+# delr3_emu = deltaR(
+#     events_tt_train.emu_eta[:],
+#     events_tt_train.emu_phi[:],
+#     events_tt_train.gen_top_w_children_eta[:, 1, 0],
+#     events_tt_train.gen_top_w_children_phi[:, 1, 0],
+# )
+# delr4_emu = deltaR(
+#     events_tt_train.emu_eta[:],
+#     events_tt_train.emu_phi[:],
+#     events_tt_train.gen_top_w_children_eta[:, 1, 1],
+#     events_tt_train.gen_top_w_children_phi[:, 1, 1],
+# )
 # tau gen matching
 delr1_tau = deltaR(
     events_tt_train.tau_eta[:],
@@ -314,7 +315,7 @@ for hh_cut, label in zip([0, 0.5, 0.7, 0.9], ["none", "loose", "tight", "very ti
     x = np.arange(6)
     labels = ["Unknown",
             "Prompt e",
-            r"Prompt \mu",
+            r"Prompt $\mu$",
             r"$\tau_e$",
             r"$\tau_\mu$",
             r"$\tau_h$"]

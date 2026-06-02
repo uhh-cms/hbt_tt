@@ -47,7 +47,6 @@ def significance(s, *b):
 
 def total_significance(s):
     return np.sqrt(np.sum(np.square(s)))
-
 # further split tt bg
 # category id masks (one or two resolved b jets)
 # process id: fh, sl, dl: fully hadronic, semileptonic, di-leptonic

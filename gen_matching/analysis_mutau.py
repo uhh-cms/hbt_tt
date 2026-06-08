@@ -118,7 +118,7 @@ delta_rs2 = np.column_stack([delr3_emu, delr4_emu])
 delta_rs = np.stack([delta_rs1, delta_rs2], axis=1)
 delta_rs = ak.Array(delta_rs)
 
-# event-wise loop to find events which definitely hae one genmatched tau
+# event-wise loop to find events which definitely hae one genmatched mu
 # vectorised way is very difficult because indices get lost very easily
 matched_mu_indices = []
 w_mu_indices = []
@@ -191,15 +191,81 @@ plt.savefig("analysis_mutau/dnn_mu_matching", dpi=300, bbox_inches='tight')
 plt.show()
 
 ####################################################################################################################################
-# semi-leptonic case: tau matching
+# semi-leptonic case: tau matchingw_mu_indices
 # for the semi-leptonic case, if the mu is correct, the tau HAS TO BE FAKE bc the other W needs to decay hadronically,
 # with the jets emerging from the hadronic decaying W being misidentified as tau_had
 
 # find the indices of the hadronic decaying W, which is the one leading to the fake tau
+# w_mu_indices is 0 if the muon is from the first W, 1 if from the second W
+# had_w_indices is 0 if the hadronic W is the first W, 1 if the second W
+
+w_mu_indices = np.array(w_mu_indices)
+dl_mask = matched_mu_events.process_id == 1200
+dl_w_mu_indices = w_mu_indices[dl_mask]
+
 invert_indices = lambda x: 1 if x == 0 else 0
 had_w_indices = []
-had_w_indices = [invert_indices(i) for i in w_mu_indices]
+had_w_indices = [invert_indices(i) for i in dl_w_mu_indices]
+# these indices now suit to the matched_mu_dl events
+
+# now look at the hadronic decaying W and check where the fake tau is coming from
+# check if W children ( = quarks) are one fatjet
+
+had_w_children_eta = matched_mu_dl.gen_top_w_children_eta[np.arange(len(had_w_indices)), had_w_indices]
+had_w_children_phi = matched_mu_dl.gen_top_w_children_phi[np.arange(len(had_w_indices)), had_w_indices]
+
+delr_qq = deltaR(
+    had_w_children_eta[:, 0],
+    had_w_children_phi[:, 0],
+    had_w_children_eta[:, 1],
+    had_w_children_phi[:, 1],
+)
+
+# tau matching: match to qq fatjet if existent, otherwise match to two quarks
+had_w_eta = matched_mu_dl.gen_top_w_eta[np.arange(len(had_w_indices)), had_w_indices]
+had_w_phi = matched_mu_dl.gen_top_w_phi[np.arange(len(had_w_indices)), had_w_indices]
+
+tau_delrs = []
+tau_matches = [] # 0 if fatjet, 1 if two jets an first matches better, 2 if two jets and second matches better
 from IPython import embed; embed(header="MESSAGE Line 204 | File: analysis_mutau.py")
+
+
+for i in range(len(matched_mu_dl)):
+    print(i)
+    if delr_qq[i] < 0.6: # see both q as one fatjet
+        delr = deltaR(
+                      had_w_eta[i],
+                      had_w_phi[i],
+                      matched_mu_dl.tau_eta[i],
+                      matched_mu_dl.tau_phi[i],
+                      )
+        print("delr0:", delr)
+        tau_delrs.append(delr)
+        tau_matches.append(0)
+    else:
+        delr1 = deltaR(
+                      had_w_children_eta[i, 0],
+                      had_w_children_phi[i, 0],
+                      matched_mu_dl.tau_eta[i],
+                      matched_mu_dl.tau_phi[i],
+                      )
+        delr2 = deltaR(
+                      had_w_children_eta[i, 1],
+                      had_w_children_phi[i, 1],
+                      matched_mu_dl.tau_eta[i],
+                      matched_mu_dl.tau_phi[i],
+                      )
+        print("delr1:", delr1)
+        print("delr2:", delr2)
+        if delr1 < delr2:
+            tau_delrs.append(delr1)
+            tau_matches.append(1)
+        else:
+            tau_delrs.append(delr2)
+            tau_matches.append(2)
+# TODO check if indices match correct, finish tau gen matching.
+from IPython import embed; embed()
+
 # useful columns
 # matched_mu_sl.tau_eta
 # matched_mu_sl.tau_phi

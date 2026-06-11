@@ -34,6 +34,7 @@ events_tt = events_tt[events_tt.channel_id == 2] # mutau channel
 # events_tt_train = events_tt
 events_tt_train = ak.concatenate([events_tt[:10000], events_tt[844445:854446]]) # first ev are dl, second sl
 events_tt_train = ak.concatenate([events_tt_train, events_tt[844127:844444,]]) # also add fh events
+
 # important columns
 # events_tt_train.gen_top_w_children_eta
 # events_tt_train.gen_top_w_children_phi
@@ -119,6 +120,7 @@ alldelr.reset()
 
 ##################################################################################################################
 # muon matching
+# event passes muon matching if at least one muon is matched
 # array with all delrs, to not loose the indices
 delta_rs1 = np.column_stack([delr1_emu, delr2_emu])
 delta_rs2 = np.column_stack([delr3_emu, delr4_emu])
@@ -127,20 +129,19 @@ delta_rs = ak.Array(delta_rs)
 
 # event-wise loop to find events which definitely hae one genmatched mu
 # vectorised way is very difficult because indices get lost very easily
+pdgids = events_tt_train.gen_top_w_children_pdgId
 matched_mu_indices = []
 w_mu_indices = []
-flat_delrs = ak.flatten(delta_rs, axis=-1)
-flat_pdgids = ak.flatten(events_tt_train.gen_top_w_children_pdgId, axis=-1)
 for i in range(len(events_tt_train)):
-        for j in range(3):
-            if flat_delrs[i][j] < delr_cut_mu and abs(flat_pdgids[i][j]) == 13:
-                # print(f"Event {i} has a gen-matched muon with pdgId {flat_pdgids[i][j]} and delta R {flat_delrs[i][j]}")
-                matched_mu_indices.append(i)
-                if j < 2:
-                    w_mu_indices.append(0) # muon from first W
-                else:
-                    w_mu_indices.append(1) # muon from second W
-                pass
+    if ((delta_rs[i][0][0] < delr_cut_mu) and (abs(pdgids[i][0][0])== 13)) or ((delta_rs[i][0][1] < delr_cut_mu) and (abs(pdgids[i][0][1])== 13)):
+        matched_mu_indices.append(i)
+        w_mu_indices.append(0) # muon from first W
+        pass
+    elif ((delta_rs[i][1][0] < delr_cut_mu) and (abs(pdgids[i][1][0])== 13)) or ((delta_rs[i][1][1] < delr_cut_mu) and (abs(pdgids[i][1][1])== 13)):
+        matched_mu_indices.append(i)
+        w_mu_indices.append(1) # muon from second W
+
+
 unmatched_mu_indices = [i for i in range(len(events_tt_train)) if i not in matched_mu_indices]
 
 matched_mu_events = events_tt_train[matched_mu_indices]
@@ -198,6 +199,8 @@ plt.savefig("analysis_mutau/dnn_mu_matching", dpi=300, bbox_inches='tight')
 plt.show()
 
 ###################################################################################################################################
+###################################################################################################################################
+###################################################################################################################################
 # semi-leptonic case: tau matching
 # for the semi-leptonic case, if the mu is correct, the tau HAS TO BE FAKE bc the other W needs to decay hadronically,
 # with the jets emerging from the hadronic decaying W being misidentified as tau_had
@@ -234,7 +237,7 @@ had_w_phi = matched_mu_sl.gen_top_w_phi[np.arange(len(had_w_indices)), had_w_ind
 
 tau_delrs = []
 tau_matches = [] # 0 if fatjet, 1 if two jets an first matches better, 2 if two jets and second matches better
-nb_of_matched_taus = np.ones(len(matched_mu_sl), dtype=np.int_) # // 10
+nb_of_taus = np.ones(len(matched_mu_sl), dtype=np.int_) # // 10
 multiple_matches_indices = []
 for i in range(len(matched_mu_sl)): # // 10
     if delr_qq[i] < 0.6: # see both q as one fatjet
@@ -246,9 +249,8 @@ for i in range(len(matched_mu_sl)): # // 10
                       )
         tau_delrs.append(np.array(delr))
         tau_matches.append([0])
-        if len(delr) > 1:
-            # print("Warning: delr has more than one entry, check indices!")
-            nb_of_matched_taus[i] = len(delr)
+        nb_of_taus[i] = len(delr)
+        if len(delr) > 1:            
             multiple_matches_indices.append(i)
             
     else: # treat both quarks separately
@@ -264,26 +266,26 @@ for i in range(len(matched_mu_sl)): # // 10
                       matched_mu_sl.tau_eta[i],
                       matched_mu_sl.tau_phi[i],
                       )
+        # loop bc sometimes we have more than one tau
         multiple_tau_delrs = []
         multiple_tau_matches = []
-        for j in range(len(delr1)):
+        for j in range(len(delr1)):# loop through all taus
             if delr1[j] < delr2[j]:
-                multiple_tau_delrs.append(delr1[j])
-                multiple_tau_matches.append(1)
+                multiple_tau_delrs.append(delr1[j]) # append best matching delr for tau j
+                multiple_tau_matches.append(1)# tau j matches to quark 1
             else:
                 multiple_tau_delrs.append(delr2[j])
-                multiple_tau_matches.append(2)
-        tau_delrs.append(multiple_tau_delrs)
+                multiple_tau_matches.append(2)# tau j matches to quark 2
+        tau_delrs.append(multiple_tau_delrs) 
         tau_matches.append(multiple_tau_matches)
+        nb_of_taus[i] = len(delr1)
         if len(delr1) > 1:
-            nb_of_matched_taus[i] = len(delr1)
             multiple_matches_indices.append(i)
 
 tau_delrs = ak.Array(tau_delrs)
 tau_matches = ak.Array(tau_matches)
 print("tau_delrs:", tau_delrs)
 print("tau_matches:", tau_matches)
-
 ##########################################################################
 
 # plot tau delR distribution 
@@ -309,49 +311,33 @@ taudelr.reset()
 
 ##########################################################################
 # split events in matched (delr < delr_cut) and unmatched
-matched_tau_events   = matched_mu_sl[ak.any(tau_delrs < delr_cut_tau, axis=1)]
-unmatched_tau_events = matched_mu_sl[ak.all(tau_delrs >= delr_cut_tau, axis=1)]
-# split delta rs
-matched_tau_delrs    = tau_delrs[ak.any(tau_delrs < delr_cut_tau, axis=1)]
-unmatched_tau_delrs  = tau_delrs[ak.all(tau_delrs >= delr_cut_tau, axis=1)]
-# split index of match (fatjet/qq match)
-matched_tau_matches  = tau_matches[ak.any(tau_delrs < delr_cut_tau, axis=1)]
-unmatched_tau_matches  = tau_matches[ak.all(tau_delrs >= delr_cut_tau, axis=1)]
-# split nb of matched taus per event
-matched_nb_of_matched_taus   = nb_of_matched_taus[ak.any(tau_delrs < delr_cut_tau, axis=1)]
-unmatched_nb_of_matched_taus = nb_of_matched_taus[ak.all(tau_delrs >= delr_cut_tau, axis=1)]
+mask_matched = tau_delrs < delr_cut_tau
+nb_of_matches = ak.sum(mask_matched, axis=1)
 
-# nb of fakes
-mask_one_fake = matched_nb_of_matched_taus == 1
-matched_tau_one_fake      = matched_tau_events[matched_nb_of_matched_taus == 1]
-matched_tau_two_fakes     = matched_tau_events[matched_nb_of_matched_taus == 2]
-matched_tau_three_fakes   = matched_tau_events[matched_nb_of_matched_taus == 3]
-unmatched_tau_one_fake    = unmatched_tau_events[unmatched_nb_of_matched_taus == 1]
-unmatched_tau_two_fakes   = unmatched_tau_events[unmatched_nb_of_matched_taus == 2]
-unmatched_tau_three_fakes = unmatched_tau_events[unmatched_nb_of_matched_taus == 3]
+nomatched1fake = matched_mu_sl[(nb_of_matches == 0)& (nb_of_taus == 1)]
+nomatched23fake = matched_mu_sl[(nb_of_matches == 0)& (nb_of_taus >= 2)]
+onematched1fake = matched_mu_sl[(nb_of_matches == 1) & (nb_of_taus == 1)]
+onematched23fake = matched_mu_sl[(nb_of_matches == 1) & (nb_of_taus >= 2)]
+twomatched23fake = matched_mu_sl[(nb_of_matches == 2) & (nb_of_taus >= 2)]
 
-##########################################################################
 # hists
 func=logit
 lower_border = -12# set to 0 for lin scale
 upper_border = 5# set to 1 for lin scale
 fake_tau_nbins = 80
-m1f = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="matched event, 1 fake tau"))
-m2f = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="matched event, 2 fake taus"))
-m3f = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="matched event, 3 fake taus"))
-u1f = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="unmatched event, 1 fake tau"))
-u2f = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="unmatched event, 2 fake taus"))
-u3f = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="unmatched event, 3 fake taus"))
-all = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="all events"))
+nomatched1 = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"One fake $\tau$ in event, none genmatched"))
+nomatched23 = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"2-3 fake $\tau$ in event, none genmatched"))
+onematched1 = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"One fake $\tau$ in event, one genmatched"))
+onematched23 = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"2-3 fake $\tau$ in event, one genmatched"))
+twomatched23 = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"2-3 fake $\tau$ in event, two genmatched"))
+all          = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="all events"))
 
-m1f.fill(func(matched_tau_one_fake.run3_dnn_moe_hh), weight =matched_tau_one_fake.event_weight)
-m2f.fill(func(matched_tau_two_fakes.run3_dnn_moe_hh), weight =matched_tau_two_fakes.event_weight)
-m3f.fill(func(matched_tau_three_fakes.run3_dnn_moe_hh), weight =matched_tau_three_fakes.event_weight)
-u1f.fill(func(unmatched_tau_one_fake.run3_dnn_moe_hh), weight =unmatched_tau_one_fake.event_weight)
-u2f.fill(func(unmatched_tau_two_fakes.run3_dnn_moe_hh), weight =unmatched_tau_two_fakes.event_weight)
-u3f.fill(func(unmatched_tau_three_fakes.run3_dnn_moe_hh), weight =unmatched_tau_three_fakes.event_weight)
-all.fill(func(matched_tau_events.run3_dnn_moe_hh), weight =matched_tau_events.event_weight)
-all.fill(func(unmatched_tau_events.run3_dnn_moe_hh), weight =unmatched_tau_events.event_weight)
+nomatched1.fill(func(nomatched1fake.run3_dnn_moe_hh), weight =nomatched1fake.event_weight)
+nomatched23.fill(func(nomatched23fake.run3_dnn_moe_hh), weight =nomatched23fake.event_weight)
+onematched1.fill(func(onematched1fake.run3_dnn_moe_hh), weight =onematched1fake.event_weight)
+onematched23.fill(func(onematched23fake.run3_dnn_moe_hh), weight =onematched23fake.event_weight)
+twomatched23.fill(func(twomatched23fake.run3_dnn_moe_hh), weight =twomatched23fake.event_weight)
+all.fill(func(matched_mu_sl.run3_dnn_moe_hh), weight =matched_mu_sl.event_weight)
 
 # plot
 x = np.linspace(lower_border, upper_border, fake_tau_nbins + 1)  # bin edges
@@ -360,12 +346,11 @@ fig, ax1 = plt.subplots(figsize=(9, 5))
 fig.subplots_adjust(right=0.85)
 ax1.set_xlabel('HH output node')
 ax1.set_ylabel('Number of events', color="black")
-ax1.step(x, m1f.values(), alpha=0.9, label=r'event with matched tau; 1 fake tau', color='green')
-ax1.step(x, m2f.values(), alpha=0.9, label=r'event with matched tau; 2 fake taus', color='blue')
-ax1.step(x, m3f.values(), alpha=0.9, label=r'event with matched tau; 3 fake taus', color='tab:pink')
-ax1.step(x, u1f.values(), alpha=0.9, label=r'event with no matched tau; 1 fake tau', color='tab:orange')
-ax1.step(x, u2f.values(), alpha=0.9, label=r'event with no matched tau; 2 fake taus', color='tab:purple')
-ax1.step(x, u3f.values(), alpha=0.9, label=r'event with no matched tau; 3 fake taus', color='tab:brown')
+ax1.step(x, nomatched1.values(), alpha=0.9, label=r"One fake $\tau$ in event, none genmatched", color='green')
+ax1.step(x, nomatched23.values(), alpha=0.9, label=r"2-3 fake $\tau$ in event, none genmatched", color='blue')
+ax1.step(x, onematched1.values(), alpha=0.9, label=r"One fake $\tau$ in event, one genmatched", color='tab:pink')
+ax1.step(x, onematched23.values(), alpha=0.9, label=r"2-3 fake $\tau$ in event, one genmatched", color='tab:orange')
+ax1.step(x, twomatched23.values(), alpha=0.9, label=r"2-3 fake $\tau$ in event, two genmatched", color='tab:purple')
 ax1.step(x, all.values(), alpha=0.9, label=r'all events', color='red')
 
 ax1.tick_params(axis='y', labelcolor='black')
@@ -375,18 +360,18 @@ ax1.set_yscale("log")
 ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 fig.tight_layout()
-plt.title(fr"HH output node; tt background events, sl decay, mutau channel with one matched muon and one (un)matched tau (matching criterion: $\Delta R < ${delr_cut_tau}) split in nb of tau fakes", wrap=True)
+plt.title(r"HH output node; tt background events, sl decay, mutau channel with one matched muon split in nb of $\tau$ fakes and number of $\tau$ fakes matched to gen W children (matching criterion: $\Delta R < $", f"{delr_cut_tau})", wrap=True)
 plt.savefig("analysis_mutau/dnn_tau_matching_sl", dpi=300, bbox_inches='tight')
 plt.show()
 
-m1f.reset()
-m2f.reset()
-m3f.reset()
-u1f.reset()
-u2f.reset()
-u3f.reset()
+nomatched1.reset()
+nomatched23.reset()
+onematched1.reset()
+onematched23.reset()
+twomatched23.reset()
 all.reset()
-
+#####################################################################################################################################################################
+#####################################################################################################################################################################
 #####################################################################################################################################################################
 # di-leptonic channel
 # here, reco taus can actually be taus
@@ -406,12 +391,13 @@ tau_w_indices = [invert_indices(i) for i in dl_w_mu_indices]
 
 tau_delrs_dl = []
 tau_matches = [] # 0 if first children, 1 if second children
-nb_of_matched_taus = np.ones(len(matched_mu_dl), dtype=np.int_) # // 10
+nb_of_taus_dl = np.ones(len(matched_mu_dl), dtype=np.int_) # // 10
 multiple_matches_indices = []
 
 # find the W which leads to (fake) tau
 had_w_children_eta = matched_mu_dl.gen_top_w_children_eta[np.arange(len(tau_w_indices)), tau_w_indices]
 had_w_children_phi = matched_mu_dl.gen_top_w_children_phi[np.arange(len(tau_w_indices)), tau_w_indices]
+
 
 for i in range(len(matched_mu_dl)): # // 10 
     delr1 = deltaR(
@@ -437,8 +423,8 @@ for i in range(len(matched_mu_dl)): # // 10
             multiple_tau_matches_dl.append(1)
     tau_delrs_dl.append(multiple_tau_delrs_dl)
     tau_matches.append(multiple_tau_matches_dl)
+    nb_of_taus_dl[i] = len(delr1)
     if len(delr1) > 1:
-        nb_of_matched_taus[i] = len(delr1)
         multiple_matches_indices.append(i)
 
 tau_delrs_dl = ak.Array(tau_delrs_dl)
@@ -466,77 +452,47 @@ plt.legend()
 plt.savefig(f"analysis_mutau/alldelrs_tau_distribution_dl", dpi=300, bbox_inches='tight')
 plt.show()
 taudelr_dl.reset()
-
 ##########################################################################
 # split events in matched (delr < delr_cut) and unmatched
-tau_w_indices = ak.Array(tau_w_indices)
-matched_tau_events   = matched_mu_dl[ak.any(tau_delrs_dl < delr_cut_tau, axis=1)]
-unmatched_tau_events = matched_mu_dl[ak.all(tau_delrs_dl >= delr_cut_tau, axis=1)]
-# split W tau indices
-matched_tau_w_indices   = tau_w_indices[ak.any(tau_delrs_dl < delr_cut_tau, axis=1)]
-unmatched_tau_w_indices = tau_w_indices[ak.all(tau_delrs_dl >= delr_cut_tau, axis=1)]
-# split delta rs
-matched_tau_delrs    = tau_delrs_dl[ak.any(tau_delrs_dl < delr_cut_tau, axis=1)]
-unmatched_tau_delrs  = tau_delrs_dl[ak.all(tau_delrs_dl >= delr_cut_tau, axis=1)]
-# split index of match (fatjet/qq match)
-matched_tau_matches  = tau_matches[ak.any(tau_delrs_dl < delr_cut_tau, axis=1)]
-unmatched_tau_matches  = tau_matches[ak.all(tau_delrs_dl >= delr_cut_tau, axis=1)]
-# split nb of matched taus per event
-matched_nb_of_matched_taus   = nb_of_matched_taus[ak.any(tau_delrs_dl < delr_cut_tau, axis=1)]
-unmatched_nb_of_matched_taus = nb_of_matched_taus[ak.all(tau_delrs_dl >= delr_cut_tau, axis=1)]
-#
-matched_pdgids   = matched_tau_events.gen_top_w_children_pdgId[np.arange(len(matched_tau_w_indices)), matched_tau_w_indices]
-unmatched_pdgids = unmatched_tau_events.gen_top_w_children_pdgId[np.arange(len(unmatched_tau_w_indices)), unmatched_tau_w_indices]
-
-from IPython import embed; embed()
-
-# nb of fakes
 # important pdgids: e: 11, mu: 13, tau: 15, nu_e: 12, nu_mu: 14, nu_tau: 16
+mask_matched_dl = tau_delrs_dl < delr_cut_tau
+nb_of_matches_dl = ak.sum(mask_matched_dl, axis=-1)
 
-mask_tau_event = ak.any((matched_pdgids == 15) | (matched_pdgids == -15), axis=-1)
-mask_e_event   = ak.any((matched_pdgids == 11) | (matched_pdgids == -11), axis=-1)
-mask_mu_event  = ak.any((matched_pdgids == 13) | (matched_pdgids == -13), axis=-1)
-mask_e_event_unmatched   = ak.any((unmatched_pdgids == 11) | (unmatched_pdgids == -11), axis=-1)
-mask_mu_event_unmatched  = ak.any((unmatched_pdgids == 13) | (unmatched_pdgids == -13), axis=-1)
-
-tau_event_no_fake  = matched_tau_events[(matched_nb_of_matched_taus == 1) & mask_tau_event]
-tau_event_12_fakes = matched_tau_events[(matched_nb_of_matched_taus >= 2) & mask_tau_event]
-emu_event_matched  =  matched_tau_events[mask_e_event | mask_mu_event]
-emu_event_unmatched = unmatched_tau_events[mask_e_event_unmatched | mask_mu_event_unmatched]
+mask_tau_event = ak.any(ak.any(abs(matched_mu_dl.gen_top_w_children_pdgId) == 15, axis=2), axis=1)
+mask_e_event   = ak.any(ak.any(abs(matched_mu_dl.gen_top_w_children_pdgId) == 11, axis=2), axis=1)
+mask_mu_event  = ak.any(ak.any(abs(matched_mu_dl.gen_top_w_children_pdgId) == 13, axis=2), axis=1)
+mask_two_mus   = ak.all(ak.any(abs(matched_mu_dl.gen_top_w_children_pdgId) == 13, axis=2), axis=1) # both Ws decay into mus
+mask_0_matches = (nb_of_matches_dl == 0)
 
 
-
-
-
-# matched_tau_one_fake      = matched_tau_events[matched_nb_of_matched_taus == 1]
-# matched_tau_two_fakes     = matched_tau_events[matched_nb_of_matched_taus == 2]
-# matched_tau_three_fakes   = matched_tau_events[matched_nb_of_matched_taus == 3]
-# unmatched_tau_one_fake    = unmatched_tau_events[unmatched_nb_of_matched_taus == 1]
-# unmatched_tau_two_fakes   = unmatched_tau_events[unmatched_nb_of_matched_taus == 2]
-# unmatched_tau_three_fakes = unmatched_tau_events[unmatched_nb_of_matched_taus == 3]
+mutau_0f              = matched_mu_dl[mask_mu_event & mask_tau_event & (nb_of_taus_dl == 1)] # 1 mu, 1 tau, 0 fakes (~90% of data)
+mutau_12f             = matched_mu_dl[mask_mu_event & mask_tau_event & (nb_of_taus_dl >= 2)] # 1 mu, 1 tau, 1 fake (few or no events with 2 fakes. Most events here only have match for real tau)
+mumu1f_matched        = matched_mu_dl[mask_two_mus & (nb_of_matches_dl == 0)] # always one fake
+mumu1f_unmatched      = matched_mu_dl[mask_two_mus& (nb_of_matches_dl == 0)] # always one fake
+emu1f                 = matched_mu_dl[mask_e_event & mask_mu_event & (nb_of_taus_dl == 1)]
+emu23f                = matched_mu_dl[mask_e_event & mask_mu_event & (nb_of_taus_dl >= 2)]
 
 ##########################################################################
 # hists
-func=logit
+# func=logit
 lower_border = -12# set to 0 for lin scale
 upper_border = 5# set to 1 for lin scale
 fake_tau_nbins = 80
-m1f_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="matched event, 1 fake tau"))
-m2f_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="matched event, 2 fake taus"))
-m3f_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="matched event, 3 fake taus"))
-u1f_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="unmatched event, 1 fake tau"))
-u2f_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="unmatched event, 2 fake taus"))
-u3f_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="unmatched event, 3 fake taus"))
-all_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="all events"))
+mutau_0f_dl         = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"$\mu\tau$ decay, no $\tau$ fake"))
+mutau_12f_dl        = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"$\mu\tau$ decay, 1-2 $\tau$ fakes"))
+mumu1f_matched_dl   = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"$\mu\mu$ decay, one $\tau$ fake (matched)"))
+mumu1f_unmatched_dl = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"$\mu\mu$ decay, one $\tau$ fake (unmatched)"))
+emu1f_dl            = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"$e\mu$ decay, one $\tau$ fake"))
+emu23f_dl           = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label=r"$e\mu$ decay, 2-3 $\tau$ fakes"))
+all_dl              = Hist(hist.axis.Regular(fake_tau_nbins, lower_border, upper_border, name="", label="all events"))
 
-m1f_dl.fill(func(matched_tau_one_fake.run3_dnn_moe_hh), weight =matched_tau_one_fake.event_weight)
-m2f_dl.fill(func(matched_tau_two_fakes.run3_dnn_moe_hh), weight =matched_tau_two_fakes.event_weight)
-m3f_dl.fill(func(matched_tau_three_fakes.run3_dnn_moe_hh), weight =matched_tau_three_fakes.event_weight)
-u1f_dl.fill(func(unmatched_tau_one_fake.run3_dnn_moe_hh), weight =unmatched_tau_one_fake.event_weight)
-u2f_dl.fill(func(unmatched_tau_two_fakes.run3_dnn_moe_hh), weight =unmatched_tau_two_fakes.event_weight)
-u3f_dl.fill(func(unmatched_tau_three_fakes.run3_dnn_moe_hh), weight =unmatched_tau_three_fakes.event_weight)
-all_dl.fill(func(matched_tau_events.run3_dnn_moe_hh), weight =matched_tau_events.event_weight)
-all_dl.fill(func(unmatched_tau_events.run3_dnn_moe_hh), weight =unmatched_tau_events.event_weight)
+mutau_0f_dl.fill(func(mutau_0f.run3_dnn_moe_hh), weight =mutau_0f.event_weight)
+mutau_12f_dl.fill(func(mutau_12f.run3_dnn_moe_hh), weight =mutau_12f.event_weight)
+mumu1f_matched_dl.fill(func(mumu1f_matched.run3_dnn_moe_hh), weight =mumu1f_matched.event_weight)
+mumu1f_unmatched_dl.fill(func(mumu1f_unmatched.run3_dnn_moe_hh), weight =mumu1f_unmatched.event_weight)
+emu1f_dl.fill(func(emu1f.run3_dnn_moe_hh), weight =emu1f.event_weight)
+emu23f_dl.fill(func(emu23f.run3_dnn_moe_hh), weight =emu23f.event_weight)
+all_dl.fill(func(matched_mu_dl.run3_dnn_moe_hh), weight =matched_mu_dl.event_weight)
 
 # plot
 x = np.linspace(lower_border, upper_border, fake_tau_nbins + 1)  # bin edges
@@ -545,12 +501,12 @@ fig, ax1 = plt.subplots(figsize=(9, 5))
 fig.subplots_adjust(right=0.85)
 ax1.set_xlabel('HH output node')
 ax1.set_ylabel('Number of events', color="black")
-ax1.step(x, m1f_dl.values(), alpha=0.9, label=r'event with matched tau; 1 fake tau', color='green')
-ax1.step(x, m2f_dl.values(), alpha=0.9, label=r'event with matched tau; 2 fake taus', color='blue')
-ax1.step(x, m3f_dl.values(), alpha=0.9, label=r'event with matched tau; 3 fake taus', color='tab:pink')
-ax1.step(x, u1f_dl.values(), alpha=0.9, label=r'event with no matched tau; 1 fake tau', color='tab:orange')
-ax1.step(x, u2f_dl.values(), alpha=0.9, label=r'event with no matched tau; 2 fake taus', color='tab:purple')
-ax1.step(x, u3f_dl.values(), alpha=0.9, label=r'event with no matched tau; 3 fake taus', color='tab:brown')
+ax1.step(x, mutau_0f_dl.values(), alpha=0.9, label=r"$\mu\tau$ decay, no $\tau$ fake", color='green')
+ax1.step(x, mutau_12f_dl.values(), alpha=0.9, label=r"$\mu\tau$ decay, 1-2 $\tau$ fakes", color='blue')
+ax1.step(x, mumu1f_matched_dl.values(), alpha=0.9, label=r"$\mu\mu$ decay, one $\tau$ fake (matched)", color='tab:pink')
+ax1.step(x, mumu1f_unmatched_dl.values(), alpha=0.9, label=r"$\mu\mu$ decay, one $\tau$ fake (unmatched)", color='tab:orange')
+ax1.step(x, emu1f_dl.values(), alpha=0.9, label=r"$e\mu$ decay, one $\tau$ fake", color='tab:purple')
+ax1.step(x, emu23f_dl.values(), alpha=0.9, label=r"$e\mu$ decay, 2-3 $\tau$ fakes", color='tab:brown')
 ax1.step(x, all_dl.values(), alpha=0.9, label=r'all events', color='red')
 
 ax1.tick_params(axis='y', labelcolor='black')
@@ -560,14 +516,14 @@ ax1.set_yscale("log")
 ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 fig.tight_layout()
-plt.title(fr"HH output node; tt background events, dl decay, mutau channel with one matched muon and one (un)matched tau (matching criterion: $\Delta R < ${delr_cut_tau}) split in nb of tau fakes", wrap=True)
+plt.title(fr"HH output node; tt background events, dl decay, mutau channel with one matched muon split in nb of real $\tau$, number of $\tau$ fakes and number of matches to gen W children (matching criterion: $\Delta R < ${delr_cut_tau})", wrap=True)
 plt.savefig("analysis_mutau/dnn_tau_matching_dl", dpi=300, bbox_inches='tight')
 plt.show()
 
-m1f_dl.reset()
-m2f_dl.reset()
-m3f_dl.reset()
-u1f_dl.reset()
-u2f_dl.reset()
-u3f_dl.reset()
+mutau_0f_dl.reset()
+mutau_12f_dl.reset()
+mumu1f_matched_dl.reset()
+mumu1f_unmatched_dl.reset()
+emu1f_dl.reset()
+emu23f_dl.reset()
 all_dl.reset()

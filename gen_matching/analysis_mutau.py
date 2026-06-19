@@ -27,11 +27,11 @@ def inverse_logit(y):
 def identity(x):
     return x
 func = logit
-
 # events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260504/tt_22pre_v14.parquet")
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet")
 events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
-events_tt = events_tt[events_tt.channel_id == 2] # mutau channel
+# events_tt = events_tt[events_tt.channel_id == 2] # mutau channel
+events_tt = events_tt[ak.any(events_tt.category_ids == 179, axis = 1)] # mutau, res2b channel
 events_tt_train = events_tt
 # events_tt_train = ak.concatenate([events_tt[:10000], events_tt[844445:854446]]) # first ev are dl, second sl
 # events_tt_train = ak.concatenate([events_tt_train, events_tt[844127:844444,]]) # also add fh events
@@ -178,7 +178,7 @@ ax1.step(x, list(mu_events_sl.values()), alpha=0.9, label=r'matched sl mu events
 ax1.step(x, list(mu_fakes_sl.values()), alpha=0.9, label=r'fake sl mu events', color='darkslateblue')
 ax1.step(x, list(mu_fakes_fh.values()), alpha=0.9, label=r'fake fh mu events', color='darkorange')
 
-ax1.step(x, list(all_events.values()), label='all events in mutau channel', color='blue')
+ax1.step(x, list(all_events.values()), label='all events in mutau, res2b category', color='blue')
 # ax1.fill_between(x, list(all_events.values()), color='red', alpha=0.1)
 
 ax1.tick_params(axis='y', labelcolor="black")
@@ -187,9 +187,10 @@ plt.legend()
 ax1.set_yscale("log")
 ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
+ax1.legend(loc='upper right')
 fig.tight_layout()
-plt.title(r"HH output node; mutau channel tt bg split in correctly matched and fake muon events (matching criterion: $\Delta R <$"+f" {delr_cut_mu})")
-plt.savefig("analysis_mutau/dnn_mu_matching", dpi=300, bbox_inches='tight')
+plt.title(r"HH output node; tt bg of mutau, res2b category split in correctly matched and fake muon events (matching criterion: $\Delta R <$"+f" {delr_cut_mu})")
+plt.savefig("analysis_mutau/res2b_dnn_mu_matching", dpi=300, bbox_inches='tight')
 plt.show()
 
 
@@ -306,9 +307,9 @@ plt.bar(x, taudelr_lep.values(), width=(taudelr_max)/taudelr_nbins, bottom=None,
 # plt.xticks(xticks)
 plt.xlabel(r"delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
 plt.ylabel("Number of events")
-plt.title("Delta R of reconstructed fake tau and best matching children of hadronic decaying gen W, sl mutau channel")
+plt.title("Delta R of reconstructed fake tau and best matching children of hadronic decaying gen W, sl decay, mutau, res2b category")
 plt.legend()
-plt.savefig(f"analysis_mutau/alldelrs_tau_distribution_sl_updated", dpi=300, bbox_inches='tight')
+plt.savefig(f"analysis_mutau/res2b_alldelrs_tau_distribution_sl_updated", dpi=300, bbox_inches='tight')
 plt.show()
 taudelr_had.reset()
 taudelr_lep.reset()
@@ -319,6 +320,7 @@ tau_delrs_ll = ak.Array(delr_ll) # all delrs to closest lep
 # events_fatjet:
 tau_delrs_fatjet        = ak.Array(tau_delrs_fatjet)       # all delrs to fatjet W
 tau_deltalrs_lep_fatjet = ak.Array(tau_delrs_lep_fatjet)# all delrs to closest W lep child
+
 
 # add masks
 faketau_matchedto_qq = ak.concatenate([events_2jets[ak.flatten(tau_delrs_qq < tau_delrs_ll) & ak.flatten(tau_delrs_qq < delr_cut_tau) ], events_fatjet[ak.flatten(tau_delrs_fatjet < tau_deltalrs_lep_fatjet) & ak.flatten(tau_delrs_fatjet < delr_cut_tau)]])
@@ -371,8 +373,8 @@ ax1.set_yscale("log")
 ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 fig.tight_layout()
-plt.title(fr"HH output node; tt background events, sl decay, mutau channel split in $\tau$ fakes matched/not matched to gen W children (matching criterion: $\Delta R < ${delr_cut_tau})", wrap=True)
-plt.savefig("analysis_mutau/dnn_tau_matching_sl", dpi=300, bbox_inches='tight')
+plt.title(fr"HH output node; tt background events, sl decay, mutau, res2b category split in $\tau$ fakes matched/not matched to gen W children (matching criterion: $\Delta R < ${delr_cut_tau})", wrap=True)
+plt.savefig("analysis_mutau/res2b_dnn_tau_matching_sl", dpi=300, bbox_inches='tight')
 plt.show()
 
 q_fakes_tau.reset()
@@ -440,9 +442,9 @@ plt.bar(x, taudelr_dl.values(), width=(taudelr_max)/taudelr_nbins, bottom=None, 
 # plt.xticks(xticks)
 plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
 plt.ylabel("Number of events")
-plt.title("Delta R of reconstructed tau and all gen W children, dl mutau channel")
+plt.title("Delta R of reconstructed tau and all gen W children, dl decay, mutau, res2b category")
 plt.legend()
-plt.savefig(f"analysis_mutau/alldelrs_tau_distribution_dl", dpi=300, bbox_inches='tight')
+plt.savefig(f"analysis_mutau/res2b_alldelrs_tau_distribution_dl", dpi=300, bbox_inches='tight')
 plt.show()
 taudelr_dl.reset()
 ##########################################################################
@@ -489,7 +491,8 @@ etau_ematched2tau   =  events_dl[mask_e_event & mask_tau_event &
 etau_taumatched2tau =  events_dl[mask_e_event & mask_tau_event &
                              (((delrs_w1_children < delrs_w2_children) & (delrs_w1_children < delr_cut_tau) & (ak.any(abs(events_dl.gen_top_w_children_pdgId[:, 0]) == 15, axis=-1))) |
                               ((delrs_w2_children < delrs_w1_children) & (delrs_w2_children < delr_cut_tau) & (ak.any(abs(events_dl.gen_top_w_children_pdgId[:, 1]) == 15, axis=-1))))]
-
+unknown_dl =       events_dl[(((delrs_w1_children < delrs_w2_children) & (delrs_w1_children > delr_cut_tau)) |
+                              ((delrs_w2_children < delrs_w1_children) & (delrs_w2_children > delr_cut_tau)))]
 print("done with tau matching, dl decay")
 ##########################################################################
 # hists
@@ -548,8 +551,8 @@ ax1.set_yscale("log")
 ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 fig.tight_layout()
-plt.title(fr"HH output node; tt background events, dl decay, mutau channel split in different decays and in matched and unmatched reco $\tau$ (matching criterion: $\Delta R < ${delr_cut_tau})", wrap=True)
-plt.savefig("analysis_mutau/dnn_tau_matching_dl", dpi=300, bbox_inches='tight')
+plt.title(fr"HH output node; tt background events, dl decay, mutau, res2b category split in different decays and in matched and unmatched reco $\tau$ (matching criterion: $\Delta R < ${delr_cut_tau})", wrap=True)
+plt.savefig("analysis_mutau/res2b_dnn_tau_matching_dl", dpi=300, bbox_inches='tight')
 plt.show()
 
 mutau_matchedtau_histt.reset()
@@ -563,195 +566,148 @@ tautau_unmatchedtau_histt.reset()
 etau_ematched2tau_histt.reset()
 etau_taumatched2tau_histt.reset()
 all_dl.reset()
+print("done with dl decay plot")
+###################################################################################################################################
+###################################################################################################################################
+###################################################################################################################################
+# origin of gen matched tau
+# sl and dl events with tau matches
+tau_matched_to_tau_counts = ak.sum(realtau_matchedto_tau.event_weight) + ak.sum(mutau_matchedtau.event_weight) + ak.sum(tautau_matchedtau.event_weight)+ ak.sum(etau_taumatched2tau.event_weight)
+# sl, dl events with tau matched to e, mu
+tau_matched_to_emu_counts = ak.sum(faketau_matchedto_e.event_weight) + ak.sum(emu_ematched2tau.event_weight) + ak.sum(etau_ematched2tau.event_weight) + ak.sum(faketau_matchedto_mu.event_weight) + ak.sum(mumu_matchedtau.event_weight)
+# sl, dl events with tau matched to q
+tau_matched_to_q_counts = ak.sum(faketau_matchedto_qq.event_weight)
+# sl, dl events with tau unmatched
+unknown_counts = ak.sum(faketau_nomatch.event_weight) + ak.sum(unknown_dl.event_weight)
+# plot origins
+origins = ["Unknown", "jets", r"e/$\mu$", r"$\tau$"]
+counts = [unknown_counts, tau_matched_to_q_counts, tau_matched_to_emu_counts, tau_matched_to_tau_counts]
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.bar(origins, counts, color='blueviolet', alpha=0.5, edgecolor='black')
+plt.xlabel("origin")
+plt.ylabel("Number of events")
+plt.title(r"Origin of gen matched taus in mutau, res2b category (my matching)")
+# plt.xticks(x, labels, rotation=45)
+plt.yscale('linear')
+plt.savefig("analysis_mutau/res2b_origin_of_genmatched_tau_mutau", dpi=300, bbox_inches='tight')
+plt.show()
 
 ###################################################################################################################################
 ###################################################################################################################################
 ###################################################################################################################################
-# check angular distributions of W children
-# dl case
-# lep_w_children_eta = events_dl.gen_top_w_children_eta[np.arange(len(tau_w_indices)), tau_w_indices]
-# lep_w_children_phi = events_dl.gen_top_w_children_phi[np.arange(len(tau_w_indices)), tau_w_indices]
-# # sl case
-# had_w_children_eta = matched_mu_sl.gen_top_w_children_eta[np.arange(len(had_w_indices)), had_w_indices]
-# had_w_children_phi = matched_mu_sl.gen_top_w_children_phi[np.arange(len(had_w_indices)), had_w_indices]
+# plot sl, dl, fh together
+# W decay mode
+sl_mask = events_tt_train.process_id == 1100
+dl_mask = events_tt_train.process_id == 1200
+fh_mask = events_tt_train.process_id == 1300
+mask_two_taus   = ak.all(ak.any(abs(events_tt_train.gen_top_w_children_pdgId) == 15, axis=2), axis=1) # only relevnt for dl events
+events_sl = events_tt_train[sl_mask]
+events_dl = events_tt_train[(dl_mask) & (~mask_two_taus)]
+events_fh = events_tt_train[fh_mask]
+events_tautau = events_tt_train[(dl_mask) & (mask_two_taus)]
 
-# # check angular distributions of the two W's
-# # dl case
-# dl_w_eta = events_dl.gen_top_w_eta
-# dl_w_phi = events_dl.gen_top_w_phi
-# # sl case
-# sl_w_eta = matched_mu_sl.gen_top_w_eta
-# sl_w_phi = matched_mu_sl.gen_top_w_phi
+for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, events_dl.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh],
+                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass]],#[ak.flatten(events_sl.gen_top_w_mass), ak.flatten(events_dl.gen_top_w_mass), ak.flatten(events_fh.gen_top_w_mass), ak.flatten(events_tautau.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
+                                        ["HH output node", "lepton mass"],#, "WW mass"],
+                                        ["HHdnn", "m_ll"],#, "m_WW"],
+                                        [logit, identity],#, identity],
+                                        [[-14, 7],[0,150]]):#,[0,160]]):
+    sl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    dl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    fh_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    tautau_hist       = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    all_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    sl_hist.fill(func(column[0]), weight =events_sl.event_weight)
+    dl_hist.fill(func(column[1]), weight =events_dl.event_weight)
+    fh_hist.fill(func(column[2]), weight =events_fh.event_weight)
+    tautau_hist.fill(func(column[3]), weight =events_tautau.event_weight)
+    all_hist.fill(func(column[4]), weight =events_tt_train.event_weight)
 
+    # plot
+    x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
+    x = (x[:-1] + x[1:]) / 2  # bin centers
+    fig, ax1 = plt.subplots(figsize=(9, 5))
+    fig.subplots_adjust(right=0.85)
+    ax1.set_xlabel(label)
+    ax1.set_ylabel('Number of events', color="black")
+    ax1.step(x, sl_hist.values(), alpha=0.9, label=r"sl decay", color='green')
+    ax1.step(x, dl_hist.values(), alpha=0.9, label=r"$e\tau$, $\mu\tau$ dl decay", color='blue')
+    ax1.step(x, tautau_hist.values(), alpha=0.9, label=r"$\tau\tau$ decay", color='tab:orange')
+    ax1.step(x, fh_hist.values(), alpha=0.9, label=r"fh decay", color='tab:pink')
+    ax1.step(x, all_hist.values(), alpha=0.9, label=r"all events", color='red')
 
-# delr_qq = deltaR(
-#     had_w_children_eta[:, 0],
-#     had_w_children_phi[:, 0],
-#     had_w_children_eta[:, 1],
-#     had_w_children_phi[:, 1],
-# )
-# delr_ll = deltaR(
-#     lep_w_children_eta[:, 0],
-#     lep_w_children_phi[:, 0],
-#     lep_w_children_eta[:, 1],
-#     lep_w_children_phi[:, 1],
-# )
+    ax1.tick_params(axis='y', labelcolor='black')
+    ax1.get_legend_handles_labels()
+    plt.legend()
+    ax1.set_yscale("log")
+    ax1.set_xscale("linear")
+    ax1.set_ylim(bottom=1e-1)
+    fig.tight_layout()
+    plt.title(fr"{label}; tt background events, mutau, res2b category, split in W decay modes", wrap=True)
+    plt.savefig(f"analysis_mutau/{label2}_mutaures2b_W_decay_mode", dpi=300, bbox_inches='tight')
+    plt.show()
 
-# # plot
-# deltar_qq = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R of had decaying W (sl events)"))
-# deltar_ll = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R of lep decaying W (dl events)"))
-# deltar_qq.fill(delr_qq)
-# deltar_ll.fill(delr_ll)
+    sl_hist.reset()
+    dl_hist.reset()
+    fh_hist.reset()
+    tautau_hist.reset()
+    all_hist.reset()
 
-# func=identity
-# x = np.linspace(0, alldelr_max, alldelr_nbins + 1)  # bin edges
-# x = (x[:-1] + x[1:]) / 2  # bin centers
-# fig, ax1 = plt.subplots(figsize=(9, 5))
-# fig.subplots_adjust(right=0.85)
-# ax1.step(x, deltar_qq.values(), alpha=0.9, label=r"delta R of had decaying W (sl events)", color='green')
-# ax1.step(x, deltar_ll.values(), alpha=0.9, label=r"delta R of lep decaying W (dl events)", color='red')
-# ax1.set_yscale("linear")
-# ax1.set_xscale("linear")
-# ax1.set_xlabel(r'$\Delta$ R = $\sqrt{\Delta \eta² + \Delta \phi²}$')
-# ax1.set_ylabel('Number of events', color="black")
-# ax1.set_ylim(bottom=1e-1)
-# fig.tight_layout()
-# ax1.get_legend_handles_labels()
-# plt.legend()
-# plt.title("Events in mutau channel: Delta R of W children for the W not decaying into the matched muon")
-# plt.savefig("analysis_mutau/delrs_w_children", dpi=300, bbox_inches='tight')
-# plt.show()
+# hadronic tau matching
+tau_matched_unknown = events_tt[ak.flatten(events_tt.tau_genPartFlav == 0)]
+tau_matched_to_e   = events_tt[ak.flatten(events_tt.tau_genPartFlav == 1)]
+tau_matched_to_mu  = events_tt[ak.flatten(events_tt.tau_genPartFlav == 2)]
+tau_matched_to_tau_emu = ak.concatenate([events_tt[ak.flatten(events_tt.tau_genPartFlav == 3)], events_tt[ak.flatten(events_tt.tau_genPartFlav == 4)]])
+tau_matched_to_tau_h = events_tt[ak.flatten(events_tt.tau_genPartFlav == 5)]
 
-###################################################################################################################################
-# check angular distributions of the two W's
-# dl case
-# dl_w_eta = events_dl.gen_top_w_eta
-# dl_w_phi = events_dl.gen_top_w_phi
-# # sl case
-# sl_w_eta = matched_mu_sl.gen_top_w_eta
-# sl_w_phi = matched_mu_sl.gen_top_w_phi
+for column, label, label2, func, borders in zip([[tau_matched_to_e.run3_dnn_moe_hh, tau_matched_to_mu.run3_dnn_moe_hh, tau_matched_to_tau_h.run3_dnn_moe_hh, tau_matched_to_tau_emu.run3_dnn_moe_hh, tau_matched_unknown.run3_dnn_moe_hh, events_tt.run3_dnn_moe_hh],
+                                        [tau_matched_to_e.ll_mass, tau_matched_to_mu.ll_mass, tau_matched_to_tau_h.ll_mass, tau_matched_to_tau_emu.ll_mass, tau_matched_unknown.ll_mass, events_tt.ll_mass]],#[ak.flatten(events_sl.gen_top_w_mass), ak.flatten(events_dl.gen_top_w_mass), ak.flatten(events_fh.gen_top_w_mass), ak.flatten(events_tautau.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
+                                        ["HH output node", "lepton mass"],#, "WW mass"],
+                                        ["HHdnn", "m_ll"],#, "m_WW"],
+                                        [logit, identity],#, identity],
+                                        [[-14, 7],[0,150]]):#,[0,160]]):
+    matched2e_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    matched2mu_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    matched2tauhad_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    matched2tauemu_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    matched2unknown_hist       = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    all_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
 
-# delr_dl = deltaR(
-#     dl_w_eta[:, 0],
-#     dl_w_phi[:, 0],
-#     dl_w_eta[:, 1],
-#     dl_w_phi[:, 1],
-# )
-# delr_sl = deltaR(
-#     sl_w_eta[:, 0],
-#     sl_w_phi[:, 0],
-#     sl_w_eta[:, 1],
-#     sl_w_phi[:, 1],
-# )
+    matched2e_hist.fill(func(column[0]), weight =tau_matched_to_e.event_weight)
+    matched2mu_hist.fill(func(column[1]), weight =tau_matched_to_mu.event_weight)
+    matched2tauhad_hist.fill(func(column[2]), weight =tau_matched_to_tau_h.event_weight)
+    matched2tauemu_hist.fill(func(column[3]), weight =tau_matched_to_tau_emu.event_weight)
+    matched2unknown_hist.fill(func(column[4]), weight =tau_matched_unknown.event_weight)
+    all_hist.fill(func(column[5]), weight =events_tt_train.event_weight)
 
-# # plot
-# deltar_dl = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R of had decaying W (sl events)"))
-# deltar_sl = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R of lep decaying W (dl events)"))
-# deltar_dl.fill(delr_dl)
-# deltar_sl.fill(delr_sl)
+    # plot
+    x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
+    x = (x[:-1] + x[1:]) / 2  # bin centers
+    fig, ax1 = plt.subplots(figsize=(9, 5))
+    fig.subplots_adjust(right=0.85)
+    ax1.set_xlabel(label)
+    ax1.set_ylabel('Number of events', color="black")
+    ax1.step(x, matched2e_hist.values(), alpha=0.9, label=r"reco $\tau$ matched to e", color='green')
+    ax1.step(x, matched2mu_hist.values(), alpha=0.9, label=r"reco $\tau$ matched to $\mu$", color='blue')
+    ax1.step(x, matched2tauhad_hist.values(), alpha=0.9, label=r"reco $\tau$ matched to $\tau_h$", color='tab:orange')
+    ax1.step(x, matched2tauemu_hist.values(), alpha=0.9, label=r"reco $\tau$ matched to $\tau_e$, $\tau_\mu$", color='tab:brown')
+    ax1.step(x, matched2unknown_hist.values(), alpha=0.9, label=r"unknown origin of reco $\tau$", color='tab:pink')
+    ax1.step(x, all_hist.values(), alpha=0.9, label=r"all events", color='red')
 
-# func=identity
-# x = np.linspace(0, alldelr_max, alldelr_nbins + 1)  # bin edges
-# x = (x[:-1] + x[1:]) / 2  # bin centers
-# fig, ax1 = plt.subplots(figsize=(9, 5))
-# fig.subplots_adjust(right=0.85)
-# ax1.step(x, deltar_dl.values(), alpha=0.9, label=r"delta R of W's in dl events", color='green')
-# ax1.step(x, deltar_sl.values(), alpha=0.9, label=r"delta R of W's in sl events", color='red')
-# ax1.set_yscale("linear")
-# ax1.set_xscale("linear")
-# ax1.set_xlabel(r'$\Delta$ R = $\sqrt{\Delta \eta² + \Delta \phi²}$')
-# ax1.set_ylabel('Number of events', color="black")
-# ax1.set_ylim(bottom=1e-1)
-# fig.tight_layout()
-# ax1.get_legend_handles_labels()
-# plt.legend()
-# plt.title("Events in mutau channel: Delta R of gen top W's")
-# plt.savefig("analysis_mutau/delrs_ws", dpi=300, bbox_inches='tight')
-# plt.show()
-###################################################################################################################################
-# check angular distributions of the two b's and t's
-# b_eta = matched_mu_events.gen_top_b_eta
-# b_phi = matched_mu_events.gen_top_b_phi
+    ax1.tick_params(axis='y', labelcolor='black')
+    ax1.get_legend_handles_labels()
+    plt.legend()
+    ax1.set_yscale("log")
+    ax1.set_xscale("linear")
+    ax1.set_ylim(bottom=1e-1)
+    fig.tight_layout()
+    plt.title(fr"{label}; $\tau$ matching for tt background events, mutau, res2b category", wrap=True)
+    plt.savefig(f"analysis_mutau/{label2}_mutaures2b_tau_matching", dpi=300, bbox_inches='tight')
+    plt.show()
 
-# # check angular distributions of the two tops
-# top_eta = matched_mu_events.gen_top_t_eta
-# top_phi = matched_mu_events.gen_top_t_eta
-
-# delr_bs = deltaR(
-#     b_eta[:, 0],
-#     b_phi[:, 0],
-#     b_eta[:, 1],
-#     b_phi[:, 1],
-# )
-# delr_ts = deltaR(
-#     top_eta[:, 0],
-#     top_phi[:, 0],
-#     top_eta[:, 1],
-#     top_phi[:, 1],
-# )
-# deltar_bs = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R of had decaying W (sl events)"))
-# deltar_ts = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R of lep decaying W (dl events)"))
-# deltar_bs.fill(delr_bs)
-# deltar_ts.fill(delr_ts)
-
-# func=identity
-# x = np.linspace(0, alldelr_max, alldelr_nbins + 1)  # bin edges
-# x = (x[:-1] + x[1:]) / 2  # bin centers
-# fig, ax1 = plt.subplots(figsize=(9, 5))
-# fig.subplots_adjust(right=0.85)
-# ax1.step(x, deltar_bs.values(), alpha=0.9, label=r"delta R of b's in dl events", color='green')
-# ax1.set_yscale("linear")
-# ax1.set_xscale("linear")
-# ax1.set_xlabel(r'$\Delta$ R = $\sqrt{\Delta \eta² + \Delta \phi²}$')
-# ax1.set_ylabel('Number of events', color="black")
-# ax1.set_ylim(bottom=1e-1)
-# fig.tight_layout()
-# ax1.get_legend_handles_labels()
-# # plt.legend()
-# plt.title("Events in mutau channel: Delta R of gen b quarks")
-# plt.savefig("analysis_mutau/delrs_bs", dpi=300, bbox_inches='tight')
-# plt.show()
-
-# x = np.linspace(0, 10000, alldelr_nbins + 1)  # bin edges
-# x = (x[:-1] + x[1:]) / 2  # bin centers
-# fig, ax1 = plt.subplots(figsize=(9, 5))
-# fig.subplots_adjust(right=0.85)
-# ax1.step(x, deltar_ts.values(), alpha=0.9, label=r"delta R of t's in dl events", color='green')
-# ax1.set_yscale("linear")
-# ax1.set_xscale("linear")
-# ax1.set_xlabel(r'$\Delta$ R = $\sqrt{\Delta \eta² + \Delta \phi²}$')
-# ax1.set_ylabel('Number of events', color="black")
-# ax1.set_ylim(bottom=1e-1)
-# fig.tight_layout()
-# ax1.get_legend_handles_labels()
-
-# # plt.legend()
-# plt.title("Events in mutau channel: Delta R of gen top quarks")
-# plt.savefig("analysis_mutau/delrs_ts", dpi=300, bbox_inches='tight')
-# plt.show()
-
-###################################################################################################################################
-# met_phi, met_pt
-# plot
-# met_pt_dl = Hist(hist.axis.Regular(alldelr_nbins, 0, 400, name="", label="delta R of had decaying W (sl events)"))
-# met_pt_sl = Hist(hist.axis.Regular(alldelr_nbins, 0, 400, name="", label="delta R of had decaying W (sl events)"))
-# met_pt_dl.fill(events_dl.met_pt)
-# met_pt_sl.fill(matched_mu_sl.met_pt)
-
-# func=identity
-# x = np.linspace(0, 1000, alldelr_nbins + 1)  # bin edges
-# x = (x[:-1] + x[1:]) / 2  # bin centers
-# fig, ax1 = plt.subplots(figsize=(9, 5))
-# fig.subplots_adjust(right=0.85)
-# ax1.step(x, met_pt_dl.values(), alpha=0.9, label=r"di-leptonic", color='green')
-# ax1.step(x, met_pt_sl.values(), alpha=0.9, label=r"semi-leptonic", color='red')
-# ax1.set_yscale("linear")
-# ax1.set_xscale("linear")
-# ax1.set_xlabel(r'met $p_T$')
-# ax1.set_ylabel('Number of events', color="black")
-# ax1.set_ylim(bottom=1e-1)
-# fig.tight_layout()
-# plt.legend()
-# plt.title("Events in mutau channel: MET of muon-matched events")
-# plt.savefig("analysis_mutau/met", dpi=300, bbox_inches='tight')
-# plt.show()
+    matched2e_hist.reset()
+    matched2mu_hist.reset()
+    matched2tauhad_hist.reset()
+    matched2tauemu_hist.reset()
+    matched2unknown_hist.reset()
+    all_hist.reset()

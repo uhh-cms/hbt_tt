@@ -51,7 +51,6 @@ binned_matched = np.bincount(ak.to_numpy(ak.flatten(events_tt.tau_genPartFlav)),
 # plt.yscale('linear')
 # plt.savefig(fr"analysis_mutau/origin_of_genmatched_tau_taugenpartflav_weighted", dpi=300, bbox_inches='tight')
 # plt.show()
-from IPython import embed; embed(header="MESSAGE Line 54 | File: origin_genmatched_tau.py")
 unknown_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 0)])
 e_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 1)])
 mu_counds = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 2)])

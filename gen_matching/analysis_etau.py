@@ -138,7 +138,7 @@ ax1.set_xscale("linear")
 ax1.set_ylim(bottom=1e-1)
 ax1.legend(loc='upper right')
 fig.tight_layout()
-plt.title(r"HH output node; tt bg of etau, res2b category split in correctly matched and fake e events (matching criterion: $\Delta R <$"+f" {delr_cut_e})")
+plt.title(r"HH output node; tt background events of etau, res2b category split in correctly matched and fake e events (matching criterion: $\Delta R <$"+f" {delr_cut_e})", wrap=True)
 plt.savefig("analysis_etau/res2b_dnn_e_matching", dpi=300, bbox_inches='tight')
 plt.show()
 
@@ -157,11 +157,12 @@ events_fh = events_tt_train[fh_mask]
 events_tautau = events_tt_train[(dl_mask) & (mask_two_taus)]
 
 for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, events_dl.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh],
-                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass]],#[ak.flatten(events_sl.gen_top_w_mass), ak.flatten(events_dl.gen_top_w_mass), ak.flatten(events_fh.gen_top_w_mass), ak.flatten(events_tautau.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
-                                        ["HH output node", "lepton mass"],#, "WW mass"],
-                                        ["HHdnn", "m_ll"],#, "m_WW"],
-                                        [logit, identity],#, identity],
-                                        [[-14, 8],[0,150]]):#,[0,160]]):
+                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass],
+                                        [events_sl.met_pt, events_dl.met_pt, events_fh.met_pt, events_tautau.met_pt, events_tt_train.met_pt]],#[ak.flatten(events_sl.gen_top_w_mass), ak.flatten(events_dl.gen_top_w_mass), ak.flatten(events_fh.gen_top_w_mass), ak.flatten(events_tautau.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
+                                        ["HH output node", "lepton mass", r"MET $p_T$"],#, "WW mass"],
+                                        ["HHdnn", "m_ll", "MET"],#, "m_WW"],
+                                        [logit, identity, identity],#, identity],
+                                        [[-14, 8],[0,150], [-10, 500]]):#,[0,160]]):
     sl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     dl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     fh_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
@@ -211,11 +212,12 @@ tau_matched_to_tau_emu = ak.concatenate([events_tt[ak.flatten(events_tt.tau_genP
 tau_matched_to_tau_h = events_tt[ak.flatten(events_tt.tau_genPartFlav == 5)]
 
 for column, label, label2, func, borders in zip([[tau_matched_to_e.run3_dnn_moe_hh, tau_matched_to_mu.run3_dnn_moe_hh, tau_matched_to_tau_h.run3_dnn_moe_hh, tau_matched_to_tau_emu.run3_dnn_moe_hh, tau_matched_unknown.run3_dnn_moe_hh, events_tt.run3_dnn_moe_hh],
-                                        [tau_matched_to_e.ll_mass, tau_matched_to_mu.ll_mass, tau_matched_to_tau_h.ll_mass, tau_matched_to_tau_emu.ll_mass, tau_matched_unknown.ll_mass, events_tt.ll_mass]],#[ak.flatten(events_sl.gen_top_w_mass), ak.flatten(events_dl.gen_top_w_mass), ak.flatten(events_fh.gen_top_w_mass), ak.flatten(events_tautau.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
-                                        ["HH output node", "lepton mass"],#, "WW mass"],
-                                        ["HHdnn", "m_ll"],#, "m_WW"],
-                                        [logit, identity],#, identity],
-                                        [[-14, 8],[0,150]]):#,[0,160]]):
+                                        [tau_matched_to_e.ll_mass, tau_matched_to_mu.ll_mass, tau_matched_to_tau_h.ll_mass, tau_matched_to_tau_emu.ll_mass, tau_matched_unknown.ll_mass, events_tt.ll_mass],
+                                        [tau_matched_to_e.met_pt, tau_matched_to_mu.met_pt, tau_matched_to_tau_h.met_pt, tau_matched_to_tau_emu.met_pt, tau_matched_unknown.met_pt, events_tt.met_pt]],#[ak.flatten(events_sl.gen_top_w_mass), ak.flatten(events_dl.gen_top_w_mass), ak.flatten(events_fh.gen_top_w_mass), ak.flatten(events_tautau.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
+                                        ["HH output node", "lepton mass", r"MET $p_T$"],#, "WW mass"],
+                                        ["HHdnn", "m_ll", "MET"],#, "m_WW"],
+                                        [logit, identity, identity],#, identity],
+                                        [[-14, 8],[0,150], [-10, 500]]):#,[0,160]]):
     matched2e_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     matched2mu_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     matched2tauhad_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))

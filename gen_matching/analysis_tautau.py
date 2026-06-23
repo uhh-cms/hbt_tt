@@ -14,6 +14,9 @@ analysing the different cases concerning their HH DNN output score distribution.
 """
 n_bins = 100
 
+delr_cut_tau = 0.3 # matched only if distance is smaller than delr_cut
+delr_cut_b = 0.4
+
 eps = 1e-6 # set eps=0 for normal scale
 lower_border = -10# set to 0 for lin scale
 upper_border = 9# set to 1 for lin scale
@@ -30,9 +33,13 @@ func = logit
 
 # events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260504/tt_22pre_v14.parquet")
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet")
+events_hh = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/hh_22pre_v14.parquet")
+
 events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
+events_hh = events_hh[events_hh.run3_dnn_moe_hh > 0]
 # events_tt = events_tt[events_tt.channel_id == 3] # tautau channel
 events_tt = events_tt[ak.any(events_tt.category_ids == 207, axis = 1)] # tautau, res2b channel
+events_hh = events_hh[ak.any(events_hh.category_ids == 207, axis = 1)] # tautau, res2b channel
 events_tt_train = events_tt
 # events_tt_train = ak.concatenate([events_tt[:10000], events_tt[844445:854446]]) # first ev are dl, second sl
 # events_tt_train = ak.concatenate([events_tt_train, events_tt[844127:844444,]]) # also add fh events
@@ -57,7 +64,7 @@ def deltaR(eta1, phi1, eta2, phi2):
     # Ensure delta_phi is in the range [-pi, pi]
     delta_phi = (delta_phi + np.pi) % (2 * np.pi) - np.pi
     return np.sqrt(delta_eta**2 + delta_phi**2)
-delr_cut_tau = 0.3 # matched only if distance is smaller than delr_cut
+
 
 ##########################################################################################################
 # # plot all events
@@ -105,23 +112,30 @@ events_dl = events_tt_train[(dl_mask) & (~mask_two_taus)]
 events_fh = events_tt_train[fh_mask]
 events_tautau = events_tt_train[(dl_mask) & (mask_two_taus)]
 
-for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, events_dl.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh],
-                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass],
-                                        [events_sl.met_pt, events_dl.met_pt, events_fh.met_pt, events_tautau.met_pt, events_tt_train.met_pt]],#[ak.flatten(events_sl.gen_top_w_mass), ak.flatten(events_dl.gen_top_w_mass), ak.flatten(events_fh.gen_top_w_mass), ak.flatten(events_tautau.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
-                                        ["HH output node", "lepton mass", r"MET $p_T$"],#, "WW mass"],
-                                        ["HHdnn", "m_ll", "MET"],#, "m_WW"],
-                                        [logit, identity, identity],#, identity],
-                                        [[-10, 8],[0,150], [-10, 300]]):#,[0,160]]):
+for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, events_dl.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh],
+                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass, events_hh.ll_mass],
+                                        [events_sl.met_pt, events_dl.met_pt, events_fh.met_pt, events_tautau.met_pt, events_tt_train.met_pt, events_hh.met_pt],
+                                        [events_sl.bb_mass, events_dl.bb_mass, events_fh.bb_mass, events_tautau.bb_mass, events_tt_train.bb_mass, events_hh.bb_mass],
+                                        [events_sl.llbb_mass, events_dl.llbb_mass, events_fh.llbb_mass, events_tautau.llbb_mass, events_tt_train.llbb_mass, events_hh.llbb_mass]],
+                                        ["HH output node", "lepton mass", r"MET $p_T$", "bb mass", "llbb mass"],
+                                        ["HHdnn", "m_ll", "MET", "m_bb", "m_llbb"],
+                                        [logit, identity, identity, identity, identity],
+                                        [[-10, 8],[0,150], [-10, 300], [0, 300], [0,500]]):
     sl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     dl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     fh_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     tautau_hist       = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     all_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    signal_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     sl_hist.fill(func(column[0]), weight =events_sl.event_weight)
     dl_hist.fill(func(column[1]), weight =events_dl.event_weight)
     fh_hist.fill(func(column[2]), weight =events_fh.event_weight)
     tautau_hist.fill(func(column[3]), weight =events_tautau.event_weight)
     all_hist.fill(func(column[4]), weight =events_tt_train.event_weight)
+    signal_hist.fill(func(column[5]), weight =events_hh.event_weight)
+
+    # scale the hh histogram up, weighted by the integral of the tt data
+    scaling_factor = (signal_hist.values().sum() / (all_hist.values().sum()))**(-1)
 
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
@@ -130,11 +144,12 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     fig.subplots_adjust(right=0.85)
     ax1.set_xlabel(label)
     ax1.set_ylabel('Number of events', color="black")
-    ax1.step(x, sl_hist.values(), alpha=0.9, label=r"sl decay", color='green')
-    ax1.step(x, dl_hist.values(), alpha=0.9, label=r"$e\tau$, $\mu\tau$ dl decay", color='blue')
-    ax1.step(x, tautau_hist.values(), alpha=0.9, label=r"$\tau\tau$ decay", color='tab:orange')
-    ax1.step(x, fh_hist.values(), alpha=0.9, label=r"fh decay", color='tab:pink')
-    ax1.step(x, all_hist.values(), alpha=0.9, label=r"all events", color='red')
+    ax1.step(x, sl_hist.values(), alpha=0.9, label=r"tt: sl decay", color='green')
+    ax1.step(x, dl_hist.values(), alpha=0.9, label=r"tt: $e\tau$, $\mu\tau$ dl decay", color='blue')
+    ax1.step(x, tautau_hist.values(), alpha=0.9, label=r"tt: $\tau\tau$ decay", color='tab:orange')
+    ax1.step(x, fh_hist.values(), alpha=0.9, label=r"tt: fh decay", color='tab:pink')
+    ax1.step(x, all_hist.values(), alpha=0.9, label=r"tt: all events", color='red')
+    ax1.step(x, signal_hist.values() * scaling_factor, alpha=0.9, label=f"signal x {round(scaling_factor)}", color="#252422")
 
     ax1.tick_params(axis='y', labelcolor='black')
     ax1.get_legend_handles_labels()
@@ -143,7 +158,7 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     ax1.set_xscale("linear")
     ax1.set_ylim(bottom=1e-1)
     fig.tight_layout()
-    plt.title(fr"{label}; tt background events, etau, res2b category, split in W decay modes", wrap=True)
+    plt.title(fr"{label}; signal and tt background events, etau, res2b category, split in W decay modes", wrap=True)
     plt.savefig(f"analysis_tautau/{label2}_tautaures2b_W_decay_mode", dpi=300, bbox_inches='tight')
     plt.show()
 
@@ -152,6 +167,7 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     fh_hist.reset()
     tautau_hist.reset()
     all_hist.reset()
+    signal_hist.reset()
 # hadronic tau matching
 twomatchedtauhad = events_tt[ak.all(events_tt.tau_genPartFlav == 5, axis=-1)]
 onematchedemu_onematchedtauh = events_tt[ak.any(events_tt.tau_genPartFlav == 3, axis=-1) & ak.any(events_tt.tau_genPartFlav == 5, axis=-1)]
@@ -164,9 +180,9 @@ twofakes_others = events_tt[(~ak.all(events_tt.tau_genPartFlav == 5, axis=-1)) &
                             (~((ak.any(events_tt.tau_genPartFlav == 3, axis=-1) | ak.any(events_tt.tau_genPartFlav == 4, axis=-1) | ak.any(events_tt.tau_genPartFlav == 5, axis=-1)) &
                                (ak.any(events_tt.tau_genPartFlav == 0, axis=-1) | ak.any(events_tt.tau_genPartFlav == 1, axis=-1) | ak.any(events_tt.tau_genPartFlav == 2, axis=-1))))]
 
-for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_hh, onematchedemu_onematchedtauh.run3_dnn_moe_hh, onefake.run3_dnn_moe_hh, twofakes_unknown.run3_dnn_moe_hh, twofakes_others.run3_dnn_moe_hh,  events_tt.run3_dnn_moe_hh],
-                                        [twomatchedtauhad.ll_mass, onematchedemu_onematchedtauh.ll_mass, onefake.ll_mass, twofakes_unknown.ll_mass, twofakes_others.ll_mass, events_tt.ll_mass],
-                                        [twomatchedtauhad.met_pt, onematchedemu_onematchedtauh.met_pt, onefake.met_pt, twofakes_unknown.met_pt, twofakes_others.met_pt, events_tt.met_pt]],#[ak.flatten(twomatchedtauhad.gen_top_w_mass), ak.flatten(onematchedemu_onematchedtauh.gen_top_w_mass), ak.flatten(twofakes_unknown.gen_top_w_mass), ak.flatten(twofakes_others.gen_top_w_mass), ak.flatten(events_tt_train.gen_top_w_mass)]],
+for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_hh, onematchedemu_onematchedtauh.run3_dnn_moe_hh, onefake.run3_dnn_moe_hh, twofakes_unknown.run3_dnn_moe_hh, twofakes_others.run3_dnn_moe_hh,  events_tt.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh],
+                                        [twomatchedtauhad.ll_mass, onematchedemu_onematchedtauh.ll_mass, onefake.ll_mass, twofakes_unknown.ll_mass, twofakes_others.ll_mass, events_tt.ll_mass, events_hh.ll_mass],
+                                        [twomatchedtauhad.met_pt, onematchedemu_onematchedtauh.met_pt, onefake.met_pt, twofakes_unknown.met_pt, twofakes_others.met_pt, events_tt.met_pt, events_hh.met_pt]],
                                         ["HH output node", "lepton mass", r"MET $p_T$"],#, "WW mass"],
                                         ["HHdnn", "m_ll", "MET"],#, "m_WW"],
                                         [logit, identity, identity],#, identity],
@@ -177,6 +193,7 @@ for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_
     twofakes_unknown_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     twofakes_others_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     all_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    signal_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
 
     twomatchedtauhad_hist.fill(func(column[0]), weight =twomatchedtauhad.event_weight)
     onematchedemu_onematchedtauh_hist.fill(func(column[1]), weight =onematchedemu_onematchedtauh.event_weight)
@@ -184,6 +201,11 @@ for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_
     twofakes_unknown_hist.fill(func(column[3]), weight =twofakes_unknown.event_weight)
     twofakes_others_hist.fill(func(column[4]), weight =twofakes_others.event_weight)
     all_hist.fill(func(column[5]), weight =events_tt_train.event_weight)
+    signal_hist.fill(func(column[6]), weight =events_hh.event_weight)
+
+    # scale the hh histogram up, weighted by the integral of the tt data
+    scaling_factor = (signal_hist.values().sum() / (all_hist.values().sum()))**(-1)
+
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
     x = (x[:-1] + x[1:]) / 2  # bin centers
@@ -191,12 +213,13 @@ for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_
     fig.subplots_adjust(right=0.85)
     ax1.set_xlabel(label)
     ax1.set_ylabel('Number of events', color="black")
-    ax1.step(x, twomatchedtauhad_hist.values(), alpha=0.9, label=r"2 reco $\tau$ matched to $\tau_h$", color='green')
-    ax1.step(x, onematchedemu_onematchedtauh_hist.values(), alpha=0.9, label=rf"1 reco $\tau$ matched to $\tau_h$, 1 to $\tau_e$ or $\tau_\mu$", color='blue')
+    ax1.step(x, twomatchedtauhad_hist.values(), alpha=0.9, label=r"tt: 2 reco $\tau$ matched to $\tau_h$", color='green')
+    ax1.step(x, onematchedemu_onematchedtauh_hist.values(), alpha=0.9, label=rf"tt: 1 reco $\tau$ matched to $\tau_h$, 1 to $\tau_e$ or $\tau_\mu$", color='blue')
     ax1.step(x, onefake_hist.values(), alpha=0.9, label=rf"1 correctly matched and 1 fake $\tau$", color='tab:pink')
-    ax1.step(x, twofakes_unknown_hist.values(), alpha=0.9, label=r"2 reco $\tau$ with unknown origin", color='tab:orange')
-    ax1.step(x, twofakes_others_hist.values(), alpha=0.9, label=r"Other events with 2 $\tau$ fakes", color='tab:brown')
-    ax1.step(x, all_hist.values(), alpha=0.9, label=r"all events", color='red')
+    ax1.step(x, twofakes_unknown_hist.values(), alpha=0.9, label=r"tt: 2 reco $\tau$ with unknown origin", color='tab:orange')
+    ax1.step(x, twofakes_others_hist.values(), alpha=0.9, label=r"tt: Other events with 2 $\tau$ fakes", color='tab:brown')
+    ax1.step(x, all_hist.values(), alpha=0.9, label=r"tt: all events", color='red')
+    ax1.step(x, signal_hist.values() * scaling_factor, alpha=0.9, label=f"signal x {round(scaling_factor)}", color="#252422")
 
     ax1.tick_params(axis='y', labelcolor='black')
     ax1.get_legend_handles_labels()
@@ -390,7 +413,6 @@ all_events.fill(func(events_dl.run3_dnn_moe_hh), weight =events_dl.event_weight)
 
 ##########################################################################################################
 ##########################################################################################################
-from IPython import embed; embed(header="MESSAGE Line 391 | File: analysis_tautau.py")
 # sl decay: tau matching
 # had_mask = abs(events_sl.gen_top_w_children_pdgId) < 7
 # had_w_eta = ak.flatten(events_sl.gen_top_w_children_eta[had_mask], axis=-1)
@@ -544,3 +566,132 @@ from IPython import embed; embed(header="MESSAGE Line 391 | File: analysis_tauta
 #                              ~mask_match_tau1 &  mask_match_tau2]
 # events_1match   = events_dl[ mask_match_tau1 & ~mask_match_tau2 |
 #                              ~mask_match_tau1 &  mask_match_tau2]
+##################################################################################################################
+##################################################################################################################
+##################################################################################################################
+# b matching
+# delr of first b
+delr1_b = deltaR(
+    events_tt_train.bjet_eta[:, 0],
+    events_tt_train.bjet_phi[:, 0],
+    events_tt_train.gen_top_b_eta[:, 0],
+    events_tt_train.gen_top_b_phi[:, 0],
+)
+delr2_b = deltaR(
+    events_tt_train.bjet_eta[:, 0],
+    events_tt_train.bjet_phi[:, 0],
+    events_tt_train.gen_top_b_eta[:, 1],
+    events_tt_train.gen_top_b_phi[:, 1],
+)
+# delr of 2nd b
+delr3_b = deltaR(
+    events_tt_train.bjet_eta[:, 1],
+    events_tt_train.bjet_phi[:, 1],
+    events_tt_train.gen_top_b_eta[:, 0],
+    events_tt_train.gen_top_b_phi[:, 0]
+)
+delr4_b = deltaR(
+    events_tt_train.bjet_eta[:, 1],
+    events_tt_train.bjet_phi[:, 1],
+    events_tt_train.gen_top_b_eta[:, 1],
+    events_tt_train.gen_top_b_phi[:, 1],
+)
+
+
+# b matching
+two_b_matched    = events_tt_train[(np.minimum(delr1_b, delr2_b) < delr_cut_b) & (np.minimum(delr3_b, delr4_b) < delr_cut_b)]
+onebmatched_1bfake = events_tt_train[(np.minimum(delr1_b, delr2_b) < delr_cut_b) & (~(np.minimum(delr3_b, delr4_b) < delr_cut_b)) |
+                                   (~(np.minimum(delr1_b, delr2_b) < delr_cut_b)) & (np.minimum(delr3_b, delr4_b) < delr_cut_b)]
+twobfake           = events_tt_train[(~(np.minimum(delr1_b, delr2_b) < delr_cut_b)) & (~(np.minimum(delr3_b, delr4_b) < delr_cut_b))]
+
+print("done with b matching")
+
+
+# # initialize hists
+# # fh match hist not necessary, as all fh events are unmatched (which we expected)
+# two_b = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="", label=""))
+# oneb_onefake = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="", label=""))
+# twofake = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="", label=""))
+# allevents = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="", label=""))
+
+# # fill hists
+# two_b.fill(func(two_b_matched.run3_dnn_moe_hh), weight =two_b_matched.event_weight)
+# oneb_onefake.fill(func(onebmatched_1bfake.run3_dnn_moe_hh), weight =onebmatched_1bfake.event_weight)
+# twofake.fill(func(twobfake.run3_dnn_moe_hh), weight =twobfake.event_weight)
+# allevents.fill(func(events_tt_train.run3_dnn_moe_hh), weight =events_tt_train.event_weight)
+
+# # plot histograms
+# x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
+# x = (x[:-1] + x[1:]) / 2  # bin centers
+
+# fig, ax1 = plt.subplots(figsize=(9, 5))
+# fig.subplots_adjust(right=0.85)
+# ax1.set_xlabel('HH output node')
+# ax1.set_ylabel('Number of events', color="black")
+# ax1.step(x, list(two_b.values()), alpha=0.9, label=r'zero fake b jets', color='green')
+# ax1.step(x, list(oneb_onefake.values()), alpha=0.9, label=r'one fake b jet', color='limegreen')
+# ax1.step(x, list(twofake.values()), alpha=0.9, label=r'two fake b jets', color='purple')
+# ax1.step(x, list(allevents.values()), alpha=0.9, label=r'all events', color='red')
+
+
+# ax1.tick_params(axis='y', labelcolor="black")
+# ax1.get_legend_handles_labels()
+# plt.legend()
+# ax1.set_yscale("log")
+# ax1.set_xscale("linear")
+# ax1.set_ylim(bottom=1e-1)
+# ax1.legend(loc='upper right')
+# fig.tight_layout()
+# plt.title(r"HH output node; tt bg of tautau, res2b category split in correctly matched and fake b events (matching criterion: $\Delta R <$"+f" {delr_cut_b})", wrap=True)
+# plt.savefig("analysis_tautau/res2b_dnn_b_matching", dpi=300, bbox_inches='tight')
+# plt.show()
+
+for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh, onebmatched_1bfake.run3_dnn_moe_hh, twobfake.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh],
+                                        [two_b_matched.bb_mass, onebmatched_1bfake.bb_mass, twobfake.bb_mass, events_tt_train.bb_mass, events_hh.bb_mass]],
+                                        ["HH output node", "bb mass"],
+                                        ["HHdnn","m_bb"],
+                                        [logit, identity],
+                                        [[-10, 8], [0, 300]]):
+    two_b_hist            = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    one_b_hist            = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    zero_b_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    all_hist              = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    signal_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    two_b_hist.fill(func(column[0]), weight =two_b_matched.event_weight)
+    one_b_hist.fill(func(column[1]), weight =onebmatched_1bfake.event_weight)
+    zero_b_hist.fill(func(column[2]), weight =twobfake.event_weight)
+    all_hist.fill(func(column[3]), weight =events_tt_train.event_weight)
+    signal_hist.fill(func(column[4]), weight =events_hh.event_weight)
+
+    # scale the hh histogram up, weighted by the integral of the tt data
+    scaling_factor = (signal_hist.values().sum() / (all_hist.values().sum()))**(-1)
+
+    # plot
+    x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
+    x = (x[:-1] + x[1:]) / 2  # bin centers
+    fig, ax1 = plt.subplots(figsize=(9, 5))
+    fig.subplots_adjust(right=0.85)
+    ax1.set_xlabel(label)
+    ax1.set_ylabel('Number of events', color="black")
+    ax1.step(x, two_b_hist.values(), alpha=0.9, label="Zero fake b jets", color='green')
+    ax1.step(x, one_b_hist.values(), alpha=0.9, label="One fake b jet", color='blue')
+    ax1.step(x, zero_b_hist.values(), alpha=0.9, label="Two fake b jets", color='tab:pink')
+    ax1.step(x, all_hist.values(), alpha=0.9, label="all events", color='red')
+    ax1.step(x, signal_hist.values() * scaling_factor, alpha=0.9, label=f"signal x {round(scaling_factor)}", color="#252422")
+
+    ax1.tick_params(axis='y', labelcolor='black')
+    ax1.get_legend_handles_labels()
+    plt.legend()
+    ax1.set_yscale("log")
+    ax1.set_xscale("linear")
+    ax1.set_ylim(bottom=1e-1)
+    fig.tight_layout()
+    plt.title(fr"{label}; tt background events, tautau, res2b category, split in number of b fakes", wrap=True)
+    plt.savefig(f"analysis_tautau/bmatching_{label2}_tautaures2b", dpi=300, bbox_inches='tight')
+    plt.show()
+
+    two_b_hist.reset()
+    one_b_hist.reset()
+    zero_b_hist.reset()
+    all_hist.reset()
+    signal_hist.reset()

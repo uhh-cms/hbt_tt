@@ -12,7 +12,7 @@ We separate between fully hadronic, semi-leptonic and di-leptonic channels.
 For the different cases, we identify if the taus are fakes or not, with the aim of
 analysing the different cases concerning their HH DNN output score distribution.
 """
-n_bins = 100
+n_bins = 60
 
 delr_cut_tau = 0.3 # matched only if distance is smaller than delr_cut
 delr_cut_b = 0.4
@@ -117,11 +117,11 @@ events_dl = events_tt_train[(dl_mask) & (~mask_two_taus)]
 events_fh = events_tt_train[fh_mask]
 events_tautau = events_tt_train[(dl_mask) & (mask_two_taus)]
 
-for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, events_dl.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
-                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass, events_kl1.ll_mass, events_kl0.ll_mass, events_kl245.ll_mass, events_kl5.ll_mass],
-                                        [events_sl.met_pt, events_dl.met_pt, events_fh.met_pt, events_tautau.met_pt, events_tt_train.met_pt, events_kl1.met_pt, events_kl0.met_pt, events_kl245.met_pt, events_kl5.met_pt],
-                                        [events_sl.bb_mass, events_dl.bb_mass, events_fh.bb_mass, events_tautau.bb_mass, events_tt_train.bb_mass, events_kl1.bb_mass, events_kl0.bb_mass, events_kl245.bb_mass, events_kl5.bb_mass],
-                                        [events_sl.llbb_mass, events_dl.llbb_mass, events_fh.llbb_mass, events_tautau.llbb_mass, events_tt_train.llbb_mass, events_kl1.llbb_mass, events_kl0.llbb_mass, events_kl245.llbb_mass, events_kl5.llbb_mass]],
+for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, events_dl.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
+                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass, events_hh.ll_mass, events_kl1.ll_mass, events_kl0.ll_mass, events_kl245.ll_mass, events_kl5.ll_mass],
+                                        [events_sl.met_pt, events_dl.met_pt, events_fh.met_pt, events_tautau.met_pt, events_tt_train.met_pt, events_hh.met_pt, events_kl1.met_pt, events_kl0.met_pt, events_kl245.met_pt, events_kl5.met_pt],
+                                        [events_sl.bb_mass, events_dl.bb_mass, events_fh.bb_mass, events_tautau.bb_mass, events_tt_train.bb_mass, events_hh.bb_mass, events_kl1.bb_mass, events_kl0.bb_mass, events_kl245.bb_mass, events_kl5.bb_mass],
+                                        [events_sl.llbb_mass, events_dl.llbb_mass, events_fh.llbb_mass, events_tautau.llbb_mass, events_tt_train.llbb_mass, events_hh.llbb_mass, events_kl1.llbb_mass, events_kl0.llbb_mass, events_kl245.llbb_mass, events_kl5.llbb_mass]],
                                         ["HH output node", "lepton mass", r"MET $p_T$", "bb mass", "llbb mass"],
                                         ["HHdnn", "m_ll", "MET", "m_bb", "m_llbb"],
                                         [logit, identity, identity, identity, identity],
@@ -131,6 +131,7 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     fh_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     tautau_hist       = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     all_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    signal_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl1        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl0        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl245      = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
@@ -140,13 +141,14 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     fh_hist.fill(func(column[2]), weight =events_fh.event_weight)
     tautau_hist.fill(func(column[3]), weight =events_tautau.event_weight)
     all_hist.fill(func(column[4]), weight =events_tt_train.event_weight)
-    signal_histkl1.fill(func(column[5]), weight =events_kl1.event_weight)
-    signal_histkl0.fill(func(column[6]), weight =events_kl0.event_weight)
-    signal_histkl245.fill(func(column[7]), weight =events_kl245.event_weight)
-    signal_histkl5.fill(func(column[8]), weight =events_kl5.event_weight)
-    
+    signal_hist.fill(func(column[5]), weight =events_hh.event_weight)
+    signal_histkl1.fill(func(column[6]), weight =events_kl1.event_weight)
+    signal_histkl0.fill(func(column[7]), weight =events_kl0.event_weight)
+    signal_histkl245.fill(func(column[8]), weight =events_kl245.event_weight)
+    signal_histkl5.fill(func(column[9]), weight =events_kl5.event_weight)
+
     # scale the hh histogram up, weighted by the integral of the tt data
-    scaling_factor = ((signal_histkl1.values().sum() + signal_histkl0.values().sum() + signal_histkl245.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
+    scaling_factor = ((signal_histkl1.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
 
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
@@ -160,9 +162,10 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     ax1.step(x, tautau_hist.values(), alpha=0.9, label=r"tt: $\tau\tau$ decay", color='tab:orange')
     ax1.step(x, fh_hist.values(), alpha=0.9, label=r"tt: fh decay", color='tab:pink')
     ax1.step(x, all_hist.values(), alpha=0.9, label=r"tt: all events", color='red')
-    ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
+    # ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
+    # ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
     ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
-    ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
+    # ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
     # ax1.step(x, signal_histkl5.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 5) x {round(scaling_factor)}", color="gray")
 
 
@@ -173,7 +176,7 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     ax1.set_xscale("linear")
     ax1.set_ylim(bottom=1e-1)
     fig.tight_layout()
-    plt.title(fr"{label}; signal and tt background events, etau, res2b category, split in W decay modes", wrap=True)
+    plt.title(fr"{label}; signal and tt background events, tautau, res2b category, split in W decay modes", wrap=True)
     plt.savefig(f"analysis_tautau/{label2}_tautaures2b_W_decay_mode", dpi=300, bbox_inches='tight')
     plt.show()
 
@@ -182,11 +185,12 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     fh_hist.reset()
     tautau_hist.reset()
     all_hist.reset()
+    signal_hist.reset()
     signal_histkl1.reset()
     signal_histkl0.reset()
     signal_histkl245.reset()
     signal_histkl5.reset()
-    
+
 # hadronic tau matching
 twomatchedtauhad = events_tt[ak.all(events_tt.tau_genPartFlav == 5, axis=-1)]
 onematchedemu_onematchedtauh = events_tt[ak.any(events_tt.tau_genPartFlav == 3, axis=-1) & ak.any(events_tt.tau_genPartFlav == 5, axis=-1)]
@@ -199,9 +203,9 @@ twofakes_others = events_tt[(~ak.all(events_tt.tau_genPartFlav == 5, axis=-1)) &
                             (~((ak.any(events_tt.tau_genPartFlav == 3, axis=-1) | ak.any(events_tt.tau_genPartFlav == 4, axis=-1) | ak.any(events_tt.tau_genPartFlav == 5, axis=-1)) &
                                (ak.any(events_tt.tau_genPartFlav == 0, axis=-1) | ak.any(events_tt.tau_genPartFlav == 1, axis=-1) | ak.any(events_tt.tau_genPartFlav == 2, axis=-1))))]
 
-for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_hh, onematchedemu_onematchedtauh.run3_dnn_moe_hh, onefake.run3_dnn_moe_hh, twofakes_unknown.run3_dnn_moe_hh, twofakes_others.run3_dnn_moe_hh,  events_tt.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
-                                        [twomatchedtauhad.ll_mass, onematchedemu_onematchedtauh.ll_mass, onefake.ll_mass, twofakes_unknown.ll_mass, twofakes_others.ll_mass, events_tt.ll_mass, events_kl1.ll_mass, events_kl0.ll_mass, events_kl245.ll_mass, events_kl5.ll_mass],
-                                        [twomatchedtauhad.met_pt, onematchedemu_onematchedtauh.met_pt, onefake.met_pt, twofakes_unknown.met_pt, twofakes_others.met_pt, events_tt.met_pt, events_kl1.met_pt, events_kl0.met_pt, events_kl245.met_pt, events_kl5.met_pt]],
+for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_hh, onematchedemu_onematchedtauh.run3_dnn_moe_hh, onefake.run3_dnn_moe_hh, twofakes_unknown.run3_dnn_moe_hh, twofakes_others.run3_dnn_moe_hh,  events_tt.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
+                                        [twomatchedtauhad.ll_mass, onematchedemu_onematchedtauh.ll_mass, onefake.ll_mass, twofakes_unknown.ll_mass, twofakes_others.ll_mass, events_tt.ll_mass, events_hh.ll_mass, events_kl1.ll_mass, events_kl0.ll_mass, events_kl245.ll_mass, events_kl5.ll_mass],
+                                        [twomatchedtauhad.met_pt, onematchedemu_onematchedtauh.met_pt, onefake.met_pt, twofakes_unknown.met_pt, twofakes_others.met_pt, events_tt.met_pt, events_hh.met_pt, events_kl1.met_pt, events_kl0.met_pt, events_kl245.met_pt, events_kl5.met_pt]],
                                         ["HH output node", "lepton mass", r"MET $p_T$"],#, "WW mass"],
                                         ["HHdnn", "m_ll", "MET"],#, "m_WW"],
                                         [logit, identity, identity],#, identity],
@@ -212,6 +216,7 @@ for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_
     twofakes_unknown_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     twofakes_others_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     all_hist          = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    signal_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl1        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl0        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl245      = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
@@ -224,14 +229,14 @@ for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_
     twofakes_unknown_hist.fill(func(column[3]), weight =twofakes_unknown.event_weight)
     twofakes_others_hist.fill(func(column[4]), weight =twofakes_others.event_weight)
     all_hist.fill(func(column[5]), weight =events_tt_train.event_weight)
-    
-    signal_histkl1.fill(func(column[6]), weight =events_kl1.event_weight)
-    signal_histkl0.fill(func(column[7]), weight =events_kl0.event_weight)
-    signal_histkl245.fill(func(column[8]), weight =events_kl245.event_weight)
-    signal_histkl5.fill(func(column[9]), weight =events_kl5.event_weight)
-    
+    signal_hist.fill(func(column[6]), weight =events_hh.event_weight)
+    signal_histkl1.fill(func(column[7]), weight =events_kl1.event_weight)
+    signal_histkl0.fill(func(column[8]), weight =events_kl0.event_weight)
+    signal_histkl245.fill(func(column[9]), weight =events_kl245.event_weight)
+    signal_histkl5.fill(func(column[10]), weight =events_kl5.event_weight)
+
     # scale the hh histogram up, weighted by the integral of the tt data
-    scaling_factor = ((signal_histkl1.values().sum() + signal_histkl0.values().sum() + signal_histkl245.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
+    scaling_factor = ((signal_histkl1.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
 
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
@@ -240,15 +245,16 @@ for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_
     fig.subplots_adjust(right=0.85)
     ax1.set_xlabel(label)
     ax1.set_ylabel('Number of events', color="black")
-    ax1.step(x, twomatchedtauhad_hist.values(), alpha=0.9, label=r"tt: 2 reco $\tau$ matched to $\tau_h$", color='green')
-    ax1.step(x, onematchedemu_onematchedtauh_hist.values(), alpha=0.9, label=rf"tt: 1 reco $\tau$ matched to $\tau_h$, 1 to $\tau_e$ or $\tau_\mu$", color='blue')
-    ax1.step(x, onefake_hist.values(), alpha=0.9, label=rf"1 correctly matched and 1 fake $\tau$", color='tab:pink')
-    ax1.step(x, twofakes_unknown_hist.values(), alpha=0.9, label=r"tt: 2 reco $\tau$ with unknown origin", color='tab:orange')
-    ax1.step(x, twofakes_others_hist.values(), alpha=0.9, label=r"tt: Other events with 2 $\tau$ fakes", color='tab:brown')
+    ax1.step(x, twomatchedtauhad_hist.values(), alpha=0.9, label=r"tt: 2 reco $\tau$ matched to $\tau_h$", color='tab:orange')
+    ax1.step(x, onematchedemu_onematchedtauh_hist.values(), alpha=0.9, label=rf"tt: 1 reco $\tau$ matched to $\tau_h$, 1 to $\tau_e$ or $\tau_\mu$", color='tab:brown')
+    ax1.step(x, onefake_hist.values(), alpha=0.9, label=rf"1 correctly matched and 1 fake $\tau$", color='green')
+    ax1.step(x, twofakes_unknown_hist.values(), alpha=0.9, label=r"tt: 2 reco $\tau$ with unknown origin", color='tab:pink')
+    ax1.step(x, twofakes_others_hist.values(), alpha=0.9, label=r"tt: Other events with 2 $\tau$ fakes", color='blue')
     ax1.step(x, all_hist.values(), alpha=0.9, label=r"tt: all events", color='red')
-    ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
+    # ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
+    # ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
     ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
-    ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
+    # ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
     # ax1.step(x, signal_histkl5.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 5) x {round(scaling_factor)}", color="gray")
 
     ax1.tick_params(axis='y', labelcolor='black')
@@ -267,6 +273,7 @@ for column, label, label2, func, borders in zip([[twomatchedtauhad.run3_dnn_moe_
     onefake_hist.reset()
     twofakes_unknown_hist.reset()
     twofakes_others_hist.reset()
+    signal_hist.reset()
     signal_histkl1.reset()
     signal_histkl0.reset()
     signal_histkl245.reset()
@@ -679,8 +686,8 @@ print("done with b matching")
 # plt.savefig("analysis_tautau/res2b_dnn_b_matching", dpi=300, bbox_inches='tight')
 # plt.show()
 
-for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh, onebmatched_1bfake.run3_dnn_moe_hh, twobfake.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
-                                        [two_b_matched.bb_mass, onebmatched_1bfake.bb_mass, twobfake.bb_mass, events_tt_train.bb_mass, events_kl1.bb_mass, events_kl0.bb_mass, events_kl245.bb_mass, events_kl5.bb_mass]],
+for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh, onebmatched_1bfake.run3_dnn_moe_hh, twobfake.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
+                                        [two_b_matched.bb_mass, onebmatched_1bfake.bb_mass, twobfake.bb_mass, events_tt_train.bb_mass, events_hh.bb_mass, events_kl1.bb_mass, events_kl0.bb_mass, events_kl245.bb_mass, events_kl5.bb_mass]],
                                         ["HH output node", "bb mass"],
                                         ["HHdnn","m_bb"],
                                         [logit, identity],
@@ -689,6 +696,7 @@ for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh,
     one_b_hist            = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     zero_b_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     all_hist              = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    signal_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl1        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl0        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl245      = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
@@ -697,14 +705,15 @@ for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh,
     one_b_hist.fill(func(column[1]), weight =onebmatched_1bfake.event_weight)
     zero_b_hist.fill(func(column[2]), weight =twobfake.event_weight)
     all_hist.fill(func(column[3]), weight =events_tt_train.event_weight)
-    signal_histkl1.fill(func(column[4]), weight =events_kl1.event_weight)
-    signal_histkl0.fill(func(column[5]), weight =events_kl0.event_weight)
-    signal_histkl245.fill(func(column[6]), weight =events_kl245.event_weight)
-    signal_histkl5.fill(func(column[7]), weight =events_kl5.event_weight)
-    
+    signal_hist.fill(func(column[4]), weight =events_hh.event_weight)
+    signal_histkl1.fill(func(column[5]), weight =events_kl1.event_weight)
+    signal_histkl0.fill(func(column[6]), weight =events_kl0.event_weight)
+    signal_histkl245.fill(func(column[7]), weight =events_kl245.event_weight)
+    signal_histkl5.fill(func(column[8]), weight =events_kl5.event_weight)
+
 
     # scale the hh histogram up, weighted by the integral of the tt data
-    scaling_factor = ((signal_histkl1.values().sum() + signal_histkl0.values().sum() + signal_histkl245.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
+    scaling_factor = ((signal_histkl1.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
 
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
@@ -717,9 +726,10 @@ for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh,
     ax1.step(x, one_b_hist.values(), alpha=0.9, label="tt: One fake b jet", color='blue')
     ax1.step(x, zero_b_hist.values(), alpha=0.9, label="tt: Two fake b jets", color='tab:pink')
     ax1.step(x, all_hist.values(), alpha=0.9, label="tt: all events", color='red')
-    ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
+    # ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
+    # ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
     ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
-    ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal, ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
+    # ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal, ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
     # ax1.step(x, signal_histkl5.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 5) x {round(scaling_factor)}", color="gray")
 
     ax1.tick_params(axis='y', labelcolor='black')
@@ -737,6 +747,7 @@ for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh,
     one_b_hist.reset()
     zero_b_hist.reset()
     all_hist.reset()
+    signal_hist.reset()
     signal_histkl1.reset()
     signal_histkl0.reset()
     signal_histkl245.reset()

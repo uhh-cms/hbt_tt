@@ -84,31 +84,89 @@ delta_rs = np.stack([min_delr_emu1, min_delr_emu2], axis=1)
 delta_rs = ak.Array(delta_rs)
 
 ##################################################################################################################
-# TODO: gen matching: electrons with gen tau decay products
-# delr1_emu = deltaR(
-#     events_tt_train.emu_eta[:],
-#     events_tt_train.emu_phi[:],
-#     events_tt_train.gen_top_w_children_eta[:, 0, 0],
-#     events_tt_train.gen_top_w_children_phi[:, 0, 0],
-# )
-# delr2_emu = deltaR(
-#     events_tt_train.emu_eta[:],
-#     events_tt_train.emu_phi[:],
-#     events_tt_train.gen_top_w_children_eta[:, 0, 1],
-#     events_tt_train.gen_top_w_children_phi[:, 0, 1],
-# )
-# delr3_emu = deltaR(
-#     events_tt_train.emu_eta[:],
-#     events_tt_train.emu_phi[:],
-#     events_tt_train.gen_top_w_children_eta[:, 1, 0],
-#     events_tt_train.gen_top_w_children_phi[:, 1, 0],
-# )
-# delr4_emu = deltaR(
-#     events_tt_train.emu_eta[:],
-#     events_tt_train.emu_phi[:],
-#     events_tt_train.gen_top_w_children_eta[:, 1, 1],
-#     events_tt_train.gen_top_w_children_phi[:, 1, 1],
-# )
+mask_e = abs(events_tt_train.gen_top_w_tau_children_pdgId) == 11
+
+# # this is a nested mask, we need to get to the event level
+# event_mask = ak.any(mask_e, axis=-1)   # tau children level
+# event_mask = ak.any(event_mask, axis=-1)   # tau level
+# event_mask = ak.any(event_mask, axis=-1)   # event level
+
+# tau_events_eta = events_tt_train.emu_eta[event_mask]
+# tau_events_phi = events_tt_train.emu_phi[event_mask]
+# tau_children_events = events_tt_train[event_mask]
+
+# tau_children_eta = tau_children_events.gen_top_w_tau_children_eta[abs(tau_children_events.gen_top_w_tau_children_pdgId) == 11]
+# tau_children_phi = events_tt_train.gen_top_w_tau_children_phi[event_mask]
+delr_tauwchildren = []
+
+tau_events_e_children_phi = ak.flatten(ak.flatten(events_tt_train.gen_top_w_tau_children_phi[mask_e], axis=2), axis=2)
+tau_events_e_children_eta = ak.flatten(ak.flatten(events_tt_train.gen_top_w_tau_children_eta[mask_e], axis=2), axis=2)
+nb_of_tau_children = ak.num(tau_events_e_children_phi)
+print("number of tau children:", nb_of_tau_children, "Number of events:", len(nb_of_tau_children))
+for i in range(len(events_tt_train)):
+    if nb_of_tau_children[i] == 0:
+        delr_tauwchildren.append(100)
+    elif nb_of_tau_children[i] == 1:
+        delr_emu_wtau = deltaR(
+            events_tt_train.emu_eta[i],
+            events_tt_train.emu_phi[i],
+            tau_events_e_children_eta[i],
+            tau_events_e_children_phi[i]
+        )
+        delr_tauwchildren.append(delr_emu_wtau[0])
+    elif nb_of_tau_children[i] == 2:
+        delr1_emu_wtau = deltaR(
+            events_tt_train.emu_eta[i],
+            events_tt_train.emu_phi[i],
+            tau_events_e_children_eta[i, 0],
+            tau_events_e_children_phi[i, 0]
+        )
+        delr2_emu_wtau = deltaR(
+            events_tt_train.emu_eta[i],
+            events_tt_train.emu_phi[i],
+            tau_events_e_children_eta[i, 1],
+            tau_events_e_children_phi[i, 1]
+        )
+        delr_tauwchildren.append(min(delr2_emu_wtau, delr1_emu_wtau)[0])
+    elif nb_of_tau_children[i] == 3:
+        delr1_emu_wtau = deltaR(
+            events_tt_train.emu_eta[i],
+            events_tt_train.emu_phi[i],
+            tau_events_e_children_eta[i, 0],
+            tau_events_e_children_phi[i, 0]
+        )
+        delr2_emu_wtau = deltaR(
+            events_tt_train.emu_eta[i],
+            events_tt_train.emu_phi[i],
+            tau_events_e_children_eta[i, 1],
+            tau_events_e_children_phi[i, 1]
+        )
+        delr3_emu_wtau = deltaR(
+            events_tt_train.emu_eta[i],
+            events_tt_train.emu_phi[i],
+            tau_events_e_children_eta[i, 2],
+            tau_events_e_children_phi[i, 2]
+        )
+        delr_tauwchildren.append(min(delr2_emu_wtau, delr1_emu_wtau, delr3_emu_wtau)[0])
+alldelr_max = 1.5
+alldelr_nbins = 100
+
+tau_children_e_delr = ak.Array(delr_tauwchildren)[ak.Array(delr_tauwchildren) < 100]
+alldelr = Hist(hist.axis.Regular(alldelr_nbins, 0, alldelr_max, name="", label="delta R"))
+alldelr.fill(tau_children_e_delr, weight = events_tt_train[ak.Array(delr_tauwchildren) < 100].event_weight)
+
+x = np.linspace(0, alldelr_max, alldelr_nbins + 1)  # bin edges
+x = (x[:-1] + x[1:]) / 2  # bin centers
+# xticks = (0, 0.25, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5)
+fig = plt.figure(figsize=(10, 6))
+plt.bar(x, alldelr.values(), width=(alldelr_max)/alldelr_nbins, bottom=None, fill=True,  color='pink', edgecolor='black')
+plt.xlabel("delta R = $\sqrt{\Delta \eta² + \Delta \phi²}$")
+plt.ylabel("Number of events")
+plt.title("Delta R of all tau W children electrons with reco electrons")
+plt.savefig(f"analysis_etau/tauwchildren_alldelrs_e_distribution", dpi=300, bbox_inches='tight')
+# plt.xticks(xticks)
+plt.show()
+alldelr.reset()
 #################################################################################################################
 # e matching
 # event passes e matching if at least one e is matched
@@ -123,15 +181,20 @@ delta_rs = ak.Array(delta_rs)
 pdgids = events_tt_train.gen_top_w_children_pdgId
 mask_first_w_matched =  ((delta_rs[:,0,0] < delr_cut_e) & (abs(pdgids[:,0,0])== 11)) | ((delta_rs[:,0,1] < delr_cut_e) & (abs(pdgids[:,0,1])== 11))
 mask_second_w_matched = ((delta_rs[:,1,0] < delr_cut_e) & (abs(pdgids[:,1,0])== 11)) | ((delta_rs[:,1,1] < delr_cut_e) & (abs(pdgids[:,1,1])== 11))
+mask_tau_w_children_matched = (ak.Array(delr_tauwchildren) < delr_cut_e)
 
 print("done with e matching")
 
 matched_e_events = events_tt_train[(mask_first_w_matched) | (mask_second_w_matched)]
-fake_e_events = events_tt_train[(~mask_first_w_matched) & (~mask_second_w_matched)]
+matched_e_tauwchildren_events = events_tt_train[mask_tau_w_children_matched]
+fake_e_events = events_tt_train[(~mask_first_w_matched) & (~mask_second_w_matched) & (~mask_tau_w_children_matched)]
 
 matched_e_dl = matched_e_events[matched_e_events.process_id == 1200]
 matched_e_sl = matched_e_events[matched_e_events.process_id == 1100]
 matched_e_fh = matched_e_events[matched_e_events.process_id == 1300]
+matched_e_wtauchildren_dl = matched_e_tauwchildren_events[matched_e_tauwchildren_events.process_id == 1200]
+matched_e_wtauchildren_sl = matched_e_tauwchildren_events[matched_e_tauwchildren_events.process_id == 1100]
+matched_e_wtauchildren_fh = matched_e_tauwchildren_events[matched_e_tauwchildren_events.process_id == 1300]
 fake_e_dl = fake_e_events[fake_e_events.process_id == 1200]
 fake_e_sl = fake_e_events[fake_e_events.process_id == 1100]
 fake_e_fh = fake_e_events[fake_e_events.process_id == 1300]
@@ -140,6 +203,9 @@ fake_e_fh = fake_e_events[fake_e_events.process_id == 1300]
 # fh match hist not necessary, as all fh events are unmatched (which we expected)
 e_events_dl = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e", label="e"))
 e_events_sl = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e", label="e"))
+e_wtauch_dl = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e", label="e_ch"))
+e_wtauch_sl = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e", label="e_ch"))
+e_wtauch_fh = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e", label="e_ch"))
 e_fakes_dl = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e_fakes", label="e_fakes"))
 e_fakes_sl = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e_fakes", label="e_fakes"))
 e_fakes_fh = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="e_fakes", label="e_fakes"))
@@ -147,6 +213,9 @@ all_events = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="al
 # fill hists
 e_events_dl.fill(func(matched_e_dl.run3_dnn_moe_hh), weight =matched_e_dl.event_weight)
 e_events_sl.fill(func(matched_e_sl.run3_dnn_moe_hh), weight =matched_e_sl.event_weight)
+e_wtauch_dl.fill(func(matched_e_wtauchildren_dl.run3_dnn_moe_hh), weight =matched_e_wtauchildren_dl.event_weight)
+e_wtauch_sl.fill(func(matched_e_wtauchildren_sl.run3_dnn_moe_hh), weight =matched_e_wtauchildren_sl.event_weight)
+e_wtauch_fh.fill(func(matched_e_wtauchildren_fh.run3_dnn_moe_hh), weight =matched_e_wtauchildren_fh.event_weight)
 e_fakes_dl.fill(func(fake_e_dl.run3_dnn_moe_hh), weight =fake_e_dl.event_weight)
 e_fakes_sl.fill(func(fake_e_sl.run3_dnn_moe_hh), weight =fake_e_sl.event_weight)
 e_fakes_fh.fill(func(fake_e_fh.run3_dnn_moe_hh), weight =fake_e_fh.event_weight)
@@ -160,14 +229,15 @@ fig, ax1 = plt.subplots(figsize=(9, 5))
 fig.subplots_adjust(right=0.85)
 ax1.set_xlabel('HH output node')
 ax1.set_ylabel('Number of events', color="black")
-ax1.step(x, list(e_events_dl.values()), alpha=0.9, label=r'matched dl e events', color='green')
-ax1.step(x, list(e_fakes_dl.values()), alpha=0.9, label=r'fake dl e events', color='limegreen')
-ax1.step(x, list(e_events_sl.values()), alpha=0.9, label=r'matched sl e events', color='purple')
-ax1.step(x, list(e_fakes_sl.values()), alpha=0.9, label=r'fake sl e events', color='darkslateblue')
+ax1.step(x, list(all_events.values()), label='all events in etau, res2b category', color='red')
+ax1.step(x, list(e_events_dl.values()), alpha=0.9, label=r'dl, e matched to top W children', color='green')
+ax1.step(x, list(e_events_sl.values()), alpha=0.9, label=r'sl, e matched to top W children', color='purple')
+ax1.step(x, list(e_wtauch_dl.values()), alpha=0.9, label=r'dl, e matched to tau W children', color='limegreen')
+ax1.step(x, list(e_wtauch_sl.values()), alpha=0.9, label=r'sl, e matched to tau W children', color='darkslateblue')
+ax1.step(x, list(e_fakes_dl.values()), alpha=0.9, label=r'fake dl e events', color='tab:orange')
+ax1.step(x, list(e_fakes_sl.values()), alpha=0.9, label=r'fake sl e events', color='tab:brown')
+# ax1.step(x, list(e_wtauch_fh.values()), alpha=0.9, label=r'fh, e matched to tau W children', color='tab:pink')
 # ax1.step(x, list(e_fakes_fh.values()), alpha=0.9, label=r'fake fh e events', color='darkorange')
-
-ax1.step(x, list(all_events.values()), label='all events in etau, res2b category', color='blue')
-# ax1.fill_between(x, list(all_events.values()), color='red', alpha=0.1)
 
 ax1.tick_params(axis='y', labelcolor="black")
 ax1.get_legend_handles_labels()
@@ -228,7 +298,7 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     signal_histkl5.fill(func(column[9]), weight =events_kl5.event_weight)
 
     # scale the hh histogram up, weighted by the integral of the tt data
-    scaling_factor = ((signal_hist.values().sum())/ (all_hist.values().sum()))**(-1)
+    scaling_factor = ((signal_histkl1.values().sum())/ (all_hist.values().sum()))**(-1)
 
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
@@ -242,9 +312,9 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     ax1.step(x, tautau_hist.values(), alpha=0.9, label=r"tt: $\tau\tau$ decay", color='tab:orange')
     ax1.step(x, fh_hist.values(), alpha=0.9, label=r"tt: fh decay", color='tab:pink')
     ax1.step(x, all_hist.values(), alpha=0.9, label=r"tt: all events", color='red')
-    ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
+    # ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
     # ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
-    # ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
+    ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
     # ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
     # ax1.step(x, signal_histkl5.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 5) x {round(scaling_factor)}", color="gray")
 
@@ -309,7 +379,7 @@ for column, label, label2, func, borders in zip([[tau_matched_to_e.run3_dnn_moe_
     signal_histkl5.fill(func(column[10]), weight =events_kl5.event_weight)
 
     # scale the hh histogram up, weighted by the integral of the tt data
-    scaling_factor = ((signal_hist.values().sum())/ (all_hist.values().sum()))**(-1)
+    scaling_factor = ((signal_histkl1.values().sum())/ (all_hist.values().sum()))**(-1)
 
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
@@ -324,9 +394,9 @@ for column, label, label2, func, borders in zip([[tau_matched_to_e.run3_dnn_moe_
     ax1.step(x, matched2tauemu_hist.values(), alpha=0.9, label=r"tt: reco $\tau$ matched to $\tau_e$, $\tau_\mu$", color='tab:brown')
     ax1.step(x, matched2unknown_hist.values(), alpha=0.9, label=r"tt: unknown origin of reco $\tau$", color='tab:pink')
     ax1.step(x, all_hist.values(), alpha=0.9, label=r"tt: all events", color='red')
-    ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
+    # ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
     # ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
-    # ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
+    ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
     # ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
     # ax1.step(x, signal_histkl5.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 5) x {round(scaling_factor)}", color="gray")
 
@@ -464,7 +534,7 @@ for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh,
     signal_histkl5.fill(func(column[8]), weight =events_kl5.event_weight)
 
     # scale the hh histogram up, weighted by the integral of the tt data
-    scaling_factor = ((signal_hist.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
+    scaling_factor = ((signal_histkl1.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
 
     # plot
     x = np.linspace(borders[0], borders[1], n_bins + 1)  # bin edges
@@ -477,9 +547,9 @@ for column, label, label2, func, borders in zip([[two_b_matched.run3_dnn_moe_hh,
     ax1.step(x, one_b_hist.values(), alpha=0.9, label="tt: One fake b jet", color='blue')
     ax1.step(x, zero_b_hist.values(), alpha=0.9, label="tt: Two fake b jets", color='tab:pink')
     ax1.step(x, all_hist.values(), alpha=0.9, label="tt: all events", color='red')
-    ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
+    # ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
     # ax1.step(x, signal_histkl0.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0) x {round(scaling_factor)}", color="darkslategray")
-    # ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
+    ax1.step(x, signal_histkl1.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 1) x {round(scaling_factor)}", color="black")
     # ax1.step(x, signal_histkl245.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 2.45) x {round(scaling_factor)}", color="silver")
     # ax1.step(x, signal_histkl5.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 5) x {round(scaling_factor)}", color="gray")
     ax1.tick_params(axis='y', labelcolor='black')

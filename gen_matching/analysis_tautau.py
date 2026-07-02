@@ -111,22 +111,41 @@ def deltaR(eta1, phi1, eta2, phi2):
 sl_mask = events_tt_train.process_id == 1100
 dl_mask = events_tt_train.process_id == 1200
 fh_mask = events_tt_train.process_id == 1300
-mask_two_taus   = ak.all(ak.any(abs(events_tt_train.gen_top_w_children_pdgId) == 15, axis=2), axis=1)
-events_sl = events_tt_train[sl_mask]
-events_dl = events_tt_train[(dl_mask) & (~mask_two_taus)]
-events_fh = events_tt_train[fh_mask]
-events_tautau = events_tt_train[(dl_mask) & (mask_two_taus)]
+# mask_two_taus   = ak.all(ak.any(abs(events_tt_train.gen_top_w_children_pdgId) == 15, axis=2), axis=1)
+# events_sl = events_tt_train[sl_mask]
+# events_dl = events_tt_train[(dl_mask) & (~mask_two_taus)]
+# events_fh = events_tt_train[fh_mask]
+# events_tautau = events_tt_train[(dl_mask) & (mask_two_taus)]
 
-for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, events_dl.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
-                                        [events_sl.ll_mass, events_dl.ll_mass, events_fh.ll_mass, events_tautau.ll_mass, events_tt_train.ll_mass, events_hh.ll_mass, events_kl1.ll_mass, events_kl0.ll_mass, events_kl245.ll_mass, events_kl5.ll_mass],
-                                        [events_sl.met_pt, events_dl.met_pt, events_fh.met_pt, events_tautau.met_pt, events_tt_train.met_pt, events_hh.met_pt, events_kl1.met_pt, events_kl0.met_pt, events_kl245.met_pt, events_kl5.met_pt],
-                                        [events_sl.bb_mass, events_dl.bb_mass, events_fh.bb_mass, events_tautau.bb_mass, events_tt_train.bb_mass, events_hh.bb_mass, events_kl1.bb_mass, events_kl0.bb_mass, events_kl245.bb_mass, events_kl5.bb_mass],
-                                        [events_sl.llbb_mass, events_dl.llbb_mass, events_fh.llbb_mass, events_tautau.llbb_mass, events_tt_train.llbb_mass, events_hh.llbb_mass, events_kl1.llbb_mass, events_kl0.llbb_mass, events_kl245.llbb_mass, events_kl5.llbb_mass]],
+event_mask_1e =  ak.any(ak.any(ak.any(abs(events_tt_train.gen_top_w_tau_children_pdgId) == 11, axis=-1), axis=-1), axis=-1) & ak.any(ak.any(ak.any(abs(events_tt_train.gen_top_w_tau_children_pdgId) == 12, axis=-1), axis=-1), axis=-1)# checked
+event_mask_1mu = ak.any(ak.any(ak.any(abs(events_tt_train.gen_top_w_tau_children_pdgId) == 13, axis=-1), axis=-1), axis=-1) & ak.any(ak.any(ak.any(abs(events_tt_train.gen_top_w_tau_children_pdgId) == 14, axis=-1), axis=-1), axis=-1)# checked
+event_mask_2e = ak.all(ak.any(ak.any(abs(events_tt_train.gen_top_w_tau_children_pdgId) == 11, axis=-1), axis=-1), axis=-1) & ak.all(ak.any(ak.any(abs(events_tt_train.gen_top_w_tau_children_pdgId) == 12, axis=-1), axis=-1), axis=-1)# checked
+event_mask_2mu = ak.all(ak.any(ak.any(abs(events_tt_train.gen_top_w_tau_children_pdgId) == 13, axis=-1), axis=-1), axis=-1) # checked, empty
+event_mask_emu = ak.any(ak.any(ak.any((abs(events_tt_train.gen_top_w_tau_children_pdgId) == 11) & (abs(events_tt_train.gen_top_w_tau_children_pdgId) == 13), axis=-1), axis=-1), axis=-1)# checked, empty
+
+mask_1leptonic_tau_decay = (event_mask_1e | event_mask_1mu) & (~event_mask_2e)
+mask_2leptonic_tau_decay = event_mask_2e | event_mask_2mu | event_mask_emu
+mask_gen_tau = ak.any(ak.any(abs(events_tt_train.gen_top_w_children_pdgId) == 15, axis=2),axis=1)
+mask_had_tau = mask_gen_tau & ~mask_1leptonic_tau_decay
+mask_two_tauhad   = ak.all(ak.any(abs(events_tt_train.gen_top_w_children_pdgId) == 15, axis=2), axis=1) & (~mask_2leptonic_tau_decay) & (~mask_1leptonic_tau_decay) # checked
+
+events_sl_notau = events_tt_train[sl_mask & (~mask_had_tau)]# checked
+events_sl_1tau  = events_tt_train[sl_mask & mask_had_tau]# checked
+events_dl_onetau = events_tt_train[(dl_mask) & (~mask_two_tauhad)]# checked
+events_fh = events_tt_train[fh_mask]# checked
+events_dl_tautau = events_tt_train[(dl_mask) & (mask_two_tauhad)]# checked
+
+for column, label, label2, func, borders in zip([[events_sl_notau.run3_dnn_moe_hh, events_sl_1tau.run3_dnn_moe_hh, events_dl_onetau.run3_dnn_moe_hh, events_fh.run3_dnn_moe_hh, events_dl_tautau.run3_dnn_moe_hh, events_tt_train.run3_dnn_moe_hh, events_hh.run3_dnn_moe_hh, events_kl1.run3_dnn_moe_hh, events_kl0.run3_dnn_moe_hh, events_kl245.run3_dnn_moe_hh, events_kl5.run3_dnn_moe_hh],
+                                        [events_sl_notau.ll_mass, events_sl_1tau.ll_mass, events_dl_onetau.ll_mass, events_fh.ll_mass, events_dl_tautau.ll_mass, events_tt_train.ll_mass, events_hh.ll_mass, events_kl1.ll_mass, events_kl0.ll_mass, events_kl245.ll_mass, events_kl5.ll_mass],
+                                        [events_sl_notau.met_pt, events_sl_1tau.met_pt, events_dl_onetau.met_pt, events_fh.met_pt, events_dl_tautau.met_pt, events_tt_train.met_pt, events_hh.met_pt, events_kl1.met_pt, events_kl0.met_pt, events_kl245.met_pt, events_kl5.met_pt],
+                                        [events_sl_notau.bb_mass, events_sl_1tau.bb_mass, events_dl_onetau.bb_mass, events_fh.bb_mass, events_dl_tautau.bb_mass, events_tt_train.bb_mass, events_hh.bb_mass, events_kl1.bb_mass, events_kl0.bb_mass, events_kl245.bb_mass, events_kl5.bb_mass],
+                                        [events_sl_notau.llbb_mass, events_sl_1tau.llbb_mass, events_dl_onetau.llbb_mass, events_fh.llbb_mass, events_dl_tautau.llbb_mass, events_tt_train.llbb_mass, events_hh.llbb_mass, events_kl1.llbb_mass, events_kl0.llbb_mass, events_kl245.llbb_mass, events_kl5.llbb_mass]],
                                         ["HH output node", "lepton mass", r"MET $p_T$", "bb mass", "llbb mass"],
                                         ["HHdnn", "m_ll", "MET", "m_bb", "m_llbb"],
                                         [logit, identity, identity, identity, identity],
                                         [[-10, 8],[0,150], [-10, 300], [0, 300], [0,500]]):
-    sl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    sl0t_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
+    sl1t_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     dl_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     fh_hist           = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     tautau_hist       = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
@@ -136,16 +155,17 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     signal_histkl0        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl245      = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
     signal_histkl5        = Hist(hist.axis.Regular(n_bins, borders[0], borders[1], name="", label=r""))
-    sl_hist.fill(func(column[0]), weight =events_sl.event_weight)
-    dl_hist.fill(func(column[1]), weight =events_dl.event_weight)
-    fh_hist.fill(func(column[2]), weight =events_fh.event_weight)
-    tautau_hist.fill(func(column[3]), weight =events_tautau.event_weight)
-    all_hist.fill(func(column[4]), weight =events_tt_train.event_weight)
-    signal_hist.fill(func(column[5]), weight =events_hh.event_weight)
-    signal_histkl1.fill(func(column[6]), weight =events_kl1.event_weight)
-    signal_histkl0.fill(func(column[7]), weight =events_kl0.event_weight)
-    signal_histkl245.fill(func(column[8]), weight =events_kl245.event_weight)
-    signal_histkl5.fill(func(column[9]), weight =events_kl5.event_weight)
+    sl0t_hist.fill(func(column[0]), weight =events_sl_notau.event_weight)
+    sl1t_hist.fill(func(column[1]), weight =events_sl_1tau.event_weight)
+    dl_hist.fill(func(column[2]), weight =events_dl_onetau.event_weight)
+    fh_hist.fill(func(column[3]), weight =events_fh.event_weight)
+    tautau_hist.fill(func(column[4]), weight =events_dl_tautau.event_weight)
+    all_hist.fill(func(column[5]), weight =events_tt_train.event_weight)
+    signal_hist.fill(func(column[6]), weight =events_hh.event_weight)
+    signal_histkl1.fill(func(column[7]), weight =events_kl1.event_weight)
+    signal_histkl0.fill(func(column[8]), weight =events_kl0.event_weight)
+    signal_histkl245.fill(func(column[9]), weight =events_kl245.event_weight)
+    signal_histkl5.fill(func(column[10]), weight =events_kl5.event_weight)
 
     # scale the hh histogram up, weighted by the integral of the tt data
     scaling_factor = ((signal_histkl1.values().sum())/ (all_hist.values().sum()))**(-1)# + signal_histkl5.values().sum()
@@ -157,9 +177,10 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     fig.subplots_adjust(right=0.85)
     ax1.set_xlabel(label)
     ax1.set_ylabel('Number of events', color="black")
-    ax1.step(x, sl_hist.values(), alpha=0.9, label=r"tt: sl decay", color='green')
-    ax1.step(x, dl_hist.values(), alpha=0.9, label=r"tt: $e\tau$, $\mu\tau$ dl decay", color='blue')
-    ax1.step(x, tautau_hist.values(), alpha=0.9, label=r"tt: $\tau\tau$ decay", color='tab:orange')
+    ax1.step(x, sl0t_hist.values(), alpha=0.9, label=r"tt: sl decay, no $\tau_h$", color='green')
+    ax1.step(x, sl1t_hist.values(), alpha=0.9, label=r"tt: sl decay, one $\tau_h$", color='tab:brown')
+    ax1.step(x, dl_hist.values(), alpha=0.9, label=r"tt: dl decay, one $\tau_h$", color='blue')
+    ax1.step(x, tautau_hist.values(), alpha=0.9, label=r"tt: dl decay, two $\tau_h$", color='tab:orange')
     ax1.step(x, fh_hist.values(), alpha=0.9, label=r"tt: fh decay", color='tab:pink')
     ax1.step(x, all_hist.values(), alpha=0.9, label=r"tt: all events", color='red')
     # ax1.step(x, signal_hist.values()* scaling_factor, alpha=0.9, label=fr"signal ($\kappa_\lambda$ = 0, 1, 2.45)x {round(scaling_factor)}", color='black')
@@ -176,11 +197,12 @@ for column, label, label2, func, borders in zip([[events_sl.run3_dnn_moe_hh, eve
     ax1.set_xscale("linear")
     ax1.set_ylim(bottom=1e-1)
     fig.tight_layout()
-    plt.title(fr"{label}; signal and tt background events, tautau, res2b category, split in W decay modes", wrap=True)
-    plt.savefig(f"analysis_tautau/{label2}_tautaures2b_W_decay_mode", dpi=300, bbox_inches='tight')
+    plt.title(fr"{label}; signal and tt background events, tautau, res2b category, split in W decay modes; only hadronically decaying taus are considered taus", wrap=True)
+    plt.savefig(f"analysis_tautau/{label2}_tautaures2b_W_decay_mode_tauhad", dpi=300, bbox_inches='tight')
     plt.show()
 
-    sl_hist.reset()
+    sl0t_hist.reset()
+    sl1t_hist.reset()
     dl_hist.reset()
     fh_hist.reset()
     tautau_hist.reset()

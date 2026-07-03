@@ -17,14 +17,13 @@ n_bins = 50
 eps = 1e-6 # set eps=0 for normal scale
 lower_border = -14
 upper_border = 12
-def stable_logit(x): # TODO change to vincent's version if I want to double check for same values
+def stable_logit(x):
     # set this fct to return x for normal scale
     y = np.log((x + eps) / (1 - x + eps))
     return np.clip(y, lower_border, upper_border-eps)
 
 
 # discard negative values to avoid errors in logit transformation
-# TODO change to vincent's version (clipping instead of mask) if I want to double check for same values
 events_hh = events_hh[events_hh.run3_dnn_moe_hh > 0]
 events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
 events_dy = events_dy[events_dy.run3_dnn_moe_hh > 0]
@@ -48,8 +47,8 @@ def significance(s, *b):
     s_count = s.values()
     b_count = np.sum([_b.values() for _b in b], axis=0)
 
-    sig_per_bin = s_count**2 / (b_count + eps)
-    return np.sqrt(np.abs(sig_per_bin))
+    sig_per_bin = s_count**2 / (b_count + eps) # this is sig²
+    return np.sqrt(np.abs(sig_per_bin)) # return sig
 
 
 sig = significance(hh, tt, dy)

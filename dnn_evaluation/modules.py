@@ -32,26 +32,27 @@ def asimov_significance(s, *b):
     eps_b = 1e-9
     # from IPython import embed; embed(header="MESSAGE Line 33 | File: modules.py")
     s_count = s.values()
-
+    s_error = np.sqrt(s_count)
     # for background, negative weights can exist, which is why they are set to 0 for the significance calculation
     b_count = []
+    bs_error = 0
     for b_hist in b:
         _b = b_hist.values()
         neg_mask = _b < 0
         _b = np.where(neg_mask, 0, _b)
         b_count.append(_b)
+        bs_error += np.sqrt(_b)
     b_count = np.sum(b_count, axis=0)
-
+    b_error = np.sum(bs_error)
     # sig² for simple sig function:
     # sig_per_bin = s_count**2 / (b_count + eps)
     # asimov sig²:
     s_count = s_count + eps_s
     b_count = b_count + eps_b
-    sig_per_bin = 2 * ((s_count + b_count) * np.log(1 + s_count / (b_count )) - s_count) # asimov sig fct
-    sig = np.sqrt(np.abs(sig_per_bin))
-    # print("sig_per_bin", sig_per_bin)
-    # print("leave last bin", sig_per_bin[0:-1])
-    return sig
+    sigsquared_per_bin = 2 * ((s_count + b_count) * np.log(1 + s_count / (b_count )) - s_count) # asimov sig fct
+    sig_per_bin = np.sqrt(np.abs(sigsquared_per_bin))
+    error_per_bin = np.sqrt((np.log(s_count/b_count + 1)*s_error/sig_per_bin)**2 + (((np.log(s_count/b_count+1)*b_count - s_count)/b_count)*b_error/sig_per_bin)**2)
+    return sig_per_bin, error_per_bin
 
 def def_equbin(
     in_distr: torch.tensor,

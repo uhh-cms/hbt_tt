@@ -5,6 +5,8 @@ import hist
 from hist import Hist
 import numpy as np
 import matplotlib.pyplot as plt
+import functools
+import operator
 from modules import logit, identity, asimov_significance, def_equbin
 
 """This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
@@ -64,12 +66,12 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
     # initialize hists with flat s binning edges
     # hist.axis.variable(bin_edges, name="", label=r"")
 
-    dl_hist = Hist(hist.axis.Variable(bin_edges, name="", label=r"", flow=True))
-    fh_hist = Hist(hist.axis.Variable(bin_edges, name="", label=r"", flow=True))
-    sl_hist = Hist(hist.axis.Variable(bin_edges, name="", label=r"", flow=True))
-    dy_hist = Hist(hist.axis.Variable(bin_edges, name="", label=r"", flow=True))
-    hh_hist = Hist(hist.axis.Variable(bin_edges, name="", label=r"", flow=True))
-    all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="", label=r"", flow=True))
+    dl_hist = Hist(hist.axis.Variable(bin_edges, name="dl_hist", label=r"", flow=True), storage=hist.storage.Weight())
+    fh_hist = Hist(hist.axis.Variable(bin_edges, name="fh_hist", label=r"", flow=True), storage=hist.storage.Weight())
+    sl_hist = Hist(hist.axis.Variable(bin_edges, name="sl_hist", label=r"", flow=True), storage=hist.storage.Weight())
+    dy_hist = Hist(hist.axis.Variable(bin_edges, name="dy_hist", label=r"", flow=True), storage=hist.storage.Weight())
+    hh_hist = Hist(hist.axis.Variable(bin_edges, name="hh_hist", label=r"", flow=True), storage=hist.storage.Weight())
+    all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="all_tt_hist", label=r"", flow=True), storage=hist.storage.Weight())
     # fill
     dl_hist.fill(func(events_tt_dl["scores"].numpy()[:, 0]), weight =events_tt_dl["event_weight"].numpy()* events_tt_dl["normalization_weights"].numpy())
     fh_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
@@ -80,10 +82,11 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
     all_tt_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
     all_tt_hist.fill(func(events_tt_sl["scores"].numpy()[:, 0]), weight =events_tt_sl["event_weight"].numpy()* events_tt_sl["normalization_weights"].numpy())
 
-    sig_all, error_sig_all = asimov_significance(hh_hist, dy_hist, fh_hist, dl_hist, sl_hist)
-    sig_dl, error_sig_dl = asimov_significance(hh_hist, dl_hist)
-    sig_sl, error_sig_sl = asimov_significance(hh_hist, sl_hist)
-    sig_fh, error_sig_fh = asimov_significance(hh_hist, fh_hist)
+    sig_all, error_sig_all = asimov_significance(hh_hist, dy_hist, fh_hist, dl_hist, sl_hist, error_type="poisson_weighted")
+    sig_dl, error_sig_dl = asimov_significance(hh_hist, dl_hist, error_type="poisson_weighted")
+    sig_sl, error_sig_sl = asimov_significance(hh_hist, sl_hist, error_type="poisson_weighted")
+    sig_fh, error_sig_fh = asimov_significance(hh_hist, fh_hist, error_type="poisson_weighted")
+
     all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
     all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
     all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
@@ -113,13 +116,13 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
     "#9B5DE5",  # lavender violet
     "#5A189A",  # dark violet
     ]
-    yaxis_sig.set_ylabel(r'asimov significance', color=label_color)
+    yaxis_sig.set_ylabel(r'asimov significance $Z_A$', color=label_color)
     for sig, error, sig_tot, label, color in zip(all_significances,
                                             all_errors,
                                             all_sig_tot,
-                                            ["tt + dy sig", "tt dl sig", "tt sl sig", "tt fh sig"],
+                                            [r"$Z_A$: tt+dy", r"$Z_A$: tt dl", r"$Z_A$: tt sl", r"$Z_A$: tt fh"],
                                             colors):
-        yaxis_sig.errorbar(x_lin_bincenters, sig, yerr=error, label=label+f"; total: {round(sig_tot, 2)}", color=color, alpha=1.0)
+        yaxis_sig.errorbar(x_lin_bincenters, sig, yerr=error, label=label+f"; total: {round(sig_tot, 2)}", color=color, alpha=1.0, elinewidth=0.5, capsize=2, errorevery=2)
     yaxis_sig.tick_params(axis='y', labelcolor=label_color)
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = yaxis_sig.get_legend_handles_labels()

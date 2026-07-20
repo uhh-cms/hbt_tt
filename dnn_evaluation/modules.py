@@ -1,5 +1,8 @@
 import numpy as np
 import torch
+import functools
+import operator
+from termcolor import colored
 
 def logit(x, eps=1e-6, lower_border=-14, upper_border=12):
     # set this fct to return x for normal scale
@@ -11,7 +14,63 @@ def inverse_logit(y):
 def identity(x):
     return x
 
-def asimov_significance(s, *b):
+def get_error(h, error_type: str, density: bool = False):
+    """
+    Calculate the error to be plotted for the given histogram *h*.
+    Supported error types are:
+
+        - "variance": the plotted error is the square root of the variance for each bin
+        - "poisson_unweighted": the plotted error is the poisson error for each bin
+        - "poisson_weighted": the plotted error is the poisson error for each bin, weighted by the variance
+    If the histogram is a density histogram, the error is scaled by the area of the histogram.
+    """
+    if density:
+        area = functools.reduce(operator.mul, h.axes.widths)
+        h = h * area
+
+    # determine the error type
+    if error_type == "variance":
+        yerr = h.view().variance ** 0.5
+
+    elif error_type in {"poisson_unweighted", "poisson_weighted"}:
+        # compute asymmetric poisson confidence interval
+        from hist.intervals import poisson_interval
+
+        variances = h.view().variance if error_type == "poisson_weighted" else None
+        values = h.view().value
+        confidence_interval = poisson_interval(values, variances)
+
+        # negative values are considerd as blinded bins -> set confidence interval to 0
+        confidence_interval[:, values < 0] = 0
+
+        if error_type == "poisson_weighted":
+            # might happen if some bins are empty, see https://github.com/scikit-hep/hist/blob/5edbc25503f2cb8193cc5ff1eb71e1d8fa877e3e/src/hist/intervals.py#L74  # noqa: E501
+            confidence_interval[np.isnan(confidence_interval)] = 0
+        elif np.any(np.isnan(confidence_interval)):
+            raise ValueError("Unweighted Poisson interval calculation returned NaN values, check Hist package")
+
+        # calculate the error
+        yerr_lower = values - confidence_interval[0]
+        yerr_upper = confidence_interval[1] - values
+        yerr = np.array([yerr_lower, yerr_upper])
+        # hist name for debugging purposes:
+        ax = h.axes[0]
+        if np.any(yerr < 0):
+            print(colored(f"found yerr < 0, forcing to 0; this should not happen, please check your histogram: {ax.name}", "red"))
+            yerr[yerr < 0] = 0
+
+    else:
+        raise ValueError(f"unknown error type '{error_type}'")
+
+    # re-apply density if needed
+    if density:
+        area = functools.reduce(operator.mul, h.axes.widths)
+        h = h / area
+        yerr = yerr / area
+    return yerr
+
+
+def asimov_significance(s, *b, error_type="poisson_weighted", eps_s=1e-9, eps_b=1e-9):
     """
     Asimov Significance.
     Approximation coming from asimov for no background uncertainty: https://arxiv.org/abs/1806.00322 eq. 3.2
@@ -22,6 +81,7 @@ def asimov_significance(s, *b):
     Args:
         s (Hist): Histogram representing signal in bin.
         b (Hist): Histogram representing background in bin.
+        error_type (str, optional): Type of error to use. Defaults to "poisson_weighted".
         eps_b (int, optional):background uncertainty. Defaults to 1 to prevent very high sig values.
         eps_s (_type_, optional): signal uncertainty. Defaults to 1e-9.
 
@@ -30,28 +90,29 @@ def asimov_significance(s, *b):
     """
     eps_s = 1e-9
     eps_b = 1e-9
-    # from IPython import embed; embed(header="MESSAGE Line 33 | File: modules.py")
     s_count = s.values()
     s_error = np.sqrt(s_count)
     # for background, negative weights can exist, which is why they are set to 0 for the significance calculation
     b_count = []
-    bs_error = 0
     for b_hist in b:
         _b = b_hist.values()
         neg_mask = _b < 0
         _b = np.where(neg_mask, 0, _b)
         b_count.append(_b)
-        bs_error += np.sqrt(_b)
+        # bs_error.append(np.sqrt(_b))
     b_count = np.sum(b_count, axis=0)
-    b_error = np.sum(bs_error)
-    # sig² for simple sig function:
-    # sig_per_bin = s_count**2 / (b_count + eps)
-    # asimov sig²:
+    s_error = get_error(s, error_type=error_type)
+    b_error = [get_error(_b , error_type=error_type) for _b in b]
+    b_error = np.sqrt(np.sum(np.array(b_error) ** 2, axis=0))
     s_count = s_count + eps_s
     b_count = b_count + eps_b
     sigsquared_per_bin = 2 * ((s_count + b_count) * np.log(1 + s_count / (b_count )) - s_count) # asimov sig fct
-    sig_per_bin = np.sqrt(np.abs(sigsquared_per_bin))
+    if np.any(sigsquared_per_bin < 0):
+        print(colored("Warning: Negative significance squared values encountered. Setting them to 0.", "red"))
+        sigsquared_per_bin = np.where(sigsquared_per_bin < 0, 0, sigsquared_per_bin)
+    sig_per_bin = np.sqrt(sigsquared_per_bin)
     error_per_bin = np.sqrt((np.log(s_count/b_count + 1)*s_error/sig_per_bin)**2 + (((np.log(s_count/b_count+1)*b_count - s_count)/b_count)*b_error/sig_per_bin)**2)
+
     return sig_per_bin, error_per_bin
 
 def def_equbin(

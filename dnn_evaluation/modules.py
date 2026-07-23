@@ -112,7 +112,6 @@ def asimov_significance(s, *b, error_type="poisson_weighted", eps_s=1e-9, eps_b=
         sigsquared_per_bin = np.where(sigsquared_per_bin < 0, 0, sigsquared_per_bin)
     sig_per_bin = np.sqrt(sigsquared_per_bin)
     error_per_bin = np.sqrt((np.log(s_count/b_count + 1)*s_error/sig_per_bin)**2 + (((np.log(s_count/b_count+1)*b_count - s_count)/b_count)*b_error/sig_per_bin)**2)
-
     return sig_per_bin, error_per_bin
 
 def def_equbin(

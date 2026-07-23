@@ -11,7 +11,7 @@ import operator
 from modules import logit, identity, asimov_significance, def_equbin
 
 """This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
-meaning di-leptonic, semi-leptonic and full-hadronic W decay.
+meaning di-leptonic, semi-leptonic and full-hadronic W decay, for a flat-s binning. The Asimov significance is computed.
 """
 n_bins = 20
 eps = 1e-6 # set eps=0 for normal scale
@@ -28,6 +28,18 @@ events_train_dl6 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl
 # oversampling sl too:
 events_train_dl2sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu'))
 events_train_dl1sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu'))
+
+def add_flow_bin(h, underflow: bool = True, overflow: bool = True):
+    """Add underflow bin to the histogram *h*.
+    """
+    h = h.values(flow=True)
+    if underflow:
+        h[1] += h[0]
+    if overflow:
+        h[-2] += h[-1]
+    h_with_flow = h[1:-1]
+    return h_with_flow
+
 
 # events_train = events_train[events_train.run3_dnn_moe_hh > 0]
 for events, label1, label2 in zip([events_reference, events_train_dl4, events_train_dl2, events_train_dl6, events_train_dl2sl2, events_train_dl1sl2],
@@ -66,7 +78,6 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
     upper_border = bin_edges[-1]
     # initialize hists with flat s binning edges
     # hist.axis.variable(bin_edges, name="", label=r"")
-
     dl_hist = Hist(hist.axis.Variable(bin_edges, name="dl_hist", label=r"", flow=True), storage=hist.storage.Weight())
     fh_hist = Hist(hist.axis.Variable(bin_edges, name="fh_hist", label=r"", flow=True), storage=hist.storage.Weight())
     sl_hist = Hist(hist.axis.Variable(bin_edges, name="sl_hist", label=r"", flow=True), storage=hist.storage.Weight())
@@ -91,22 +102,21 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
     all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
     all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
     all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
-    scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() + dy_hist.values().sum()))**(-1)
+    scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
     # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
     # plot
     x = bin_edges  # bin edges
     x_bin_centers = (x[:-1] + x[1:]) / 2  # bin centers
     x_lin_binedges = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
     x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
-
     fig, ax1 = plt.subplots(figsize=(9, 5))
     fig.subplots_adjust(right=0.85)
-    ax1.stairs(hh_hist.values()*scaling_factor, edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor="black", label=fr"signal x {round(scaling_factor)}")
-    ax1.stairs(all_tt_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
-    ax1.stairs(sl_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='green', label=r"tt: sl decay")
-    ax1.stairs(dl_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='blue', label=r"tt: dl decay")
-    ax1.stairs(fh_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:brown', label=r"tt: fh decay")
-    ax1.stairs(dy_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:orange', label=r"dy")
+    ax1.stairs(add_flow_bin(hh_hist)*scaling_factor, edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor="black", label=fr"signal x {round(scaling_factor)}")
+    ax1.stairs(add_flow_bin(all_tt_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
+    ax1.stairs(add_flow_bin(sl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='green', label=r"tt: sl decay")
+    ax1.stairs(add_flow_bin(dl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='blue', label=r"tt: dl decay")
+    ax1.stairs(add_flow_bin(fh_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:brown', label=r"tt: fh decay")
+    ax1.stairs(add_flow_bin(dy_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:orange', label=r"dy")
     ax1.tick_params(axis='y', labelcolor='black')
 
     yaxis_sig = ax1.twinx()
@@ -215,7 +225,7 @@ sig_fh, error_sig_fh = asimov_significance(hh_hist, fh_hist, error_type="poisson
 all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
 all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
 all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
-scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() + dy_hist.values().sum()))**(-1)
+scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
 # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
 # plot
 x = bin_edges  # bin edges
@@ -225,12 +235,12 @@ x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
 
 fig, ax1 = plt.subplots(figsize=(9, 5))
 fig.subplots_adjust(right=0.85)
-ax1.stairs(hh_hist.values()*scaling_factor, edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor="black", label=fr"signal x {round(scaling_factor)}")
-ax1.stairs(all_tt_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
-ax1.stairs(sl_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='green', label=r"tt: sl decay")
-ax1.stairs(dl_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='blue', label=r"tt: dl decay")
-ax1.stairs(fh_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:brown', label=r"tt: fh decay")
-ax1.stairs(dy_hist.values(), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:orange', label=r"dy")
+ax1.stairs(add_flow_bin(hh_hist)*scaling_factor, edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor="black", label=fr"signal x {round(scaling_factor)}")
+ax1.stairs(add_flow_bin(all_tt_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
+ax1.stairs(add_flow_bin(sl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='green', label=r"tt: sl decay")
+ax1.stairs(add_flow_bin(dl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='blue', label=r"tt: dl decay")
+ax1.stairs(add_flow_bin(fh_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:brown', label=r"tt: fh decay")
+ax1.stairs(add_flow_bin(dy_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:orange', label=r"dy")
 ax1.tick_params(axis='y', labelcolor='black')
 
 yaxis_sig = ax1.twinx()

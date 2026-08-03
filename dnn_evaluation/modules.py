@@ -99,13 +99,22 @@ def asimov_significance(s, *b, error_type="poisson_weighted", eps_s=1e-9, eps_b=
         neg_mask = _b < 0
         _b = np.where(neg_mask, 0, _b)
         b_count.append(_b)
-        # bs_error.append(np.sqrt(_b))
     b_count = np.sum(b_count, axis=0)
+
+    # implement a dynamic epsilon for background, so that sig for bg = 0 is not too high
+    mask_bcount_zero = np.where(b_count == 0)
+    b_count[mask_bcount_zero] = None
+    epsilon_b = min(b_count)
+    b_count[np.isnan(b_count)] = epsilon_b
+
     s_error = get_error(s, error_type=error_type)
     b_error = [get_error(_b , error_type=error_type) for _b in b]
     b_error = np.sqrt(np.sum(np.array(b_error) ** 2, axis=0))
+    # to not get error bars of zero length for non-bg bins, add an error:
+    b_error[b_error==0] = 1
     s_count = s_count + eps_s
     b_count = b_count + eps_b
+
     sigsquared_per_bin = 2 * ((s_count + b_count) * np.log(1 + s_count / (b_count )) - s_count) # asimov sig fct
     if np.any(sigsquared_per_bin < 0):
         print(colored("Warning: Negative significance squared values encountered. Setting them to 0.", "red"))
@@ -114,17 +123,30 @@ def asimov_significance(s, *b, error_type="poisson_weighted", eps_s=1e-9, eps_b=
     error_per_bin = np.sqrt((np.log(s_count/b_count + 1)*s_error/sig_per_bin)**2 + (((np.log(s_count/b_count+1)*b_count - s_count)/b_count)*b_error/sig_per_bin)**2)
     return sig_per_bin, error_per_bin
 
-def def_equbin(
-    in_distr: torch.tensor,
-    binsize=None,
-    bin_num: int=100,
-    hist_edge_l: int=-14) -> tuple:
+def add_flow_bin(h, underflow: bool = True, overflow: bool = True):
+    """Add under- and/or overflow bin to the histogram *h*.
+    """
+    h = h.values(flow=True)
+    if underflow:
+        h[1] += h[0]
+    if overflow:
+        h[-2] += h[-1]
+    h_with_flow = h[1:-1]
+    return h_with_flow
+
+def flats_binning(
+    sig_distr: torch.tensor,
+    # binsize: int,
+    bin_num: int,
+    hist_edge_l: int=-1e2) -> tuple:
 
     """
-    Flat-s binning with overflow bin on the left side. Only the number of events counts, weights do not contribute.
+    Flat-s binning. Only the number of events counts, weights do not contribute.
+    This function bins signal events into a specified number of bins, ensuring that each bin contains an approximately equal number of events.
+    The leftmost bin also includes the remainding events which were too few to distribute between all bins.
 
     Args:
-        in_distr (torch.tensor): Tensor representing all signal events.
+        sig_distr (torch.tensor): Tensor representing all signal events.
         hist_edge_l (int): Integer representing the left most edge of the binned histogram.
 
     Returns:
@@ -134,39 +156,55 @@ def def_equbin(
         bins_limits: 1D array containing the exact bin edges from hist_edge_l to the maximum value
         )
     """
-    in_distr_filtered = in_distr[in_distr > hist_edge_l+1]
-    distr_size = len(in_distr_filtered)
+    sig_distr_filtered = sig_distr[sig_distr > hist_edge_l+1]
+    nb_events = len(sig_distr_filtered)
 
-    bin_size = distr_size // bin_num
-    odd_bin_size = distr_size % bin_num
+    nb_ev_per_bin = nb_events // bin_num
+    remainder_ev_per_bin = nb_events % bin_num
 
-    args = in_distr_filtered.argsort()
+    args = sig_distr_filtered.argsort()
 
-    hist = np.zeros((bin_num, bin_size))
+    # hist = np.zeros((bin_num, nb_ev_per_bin))
 
-    for i in range(bin_num):
-        start_idx = odd_bin_size + i * bin_size
-        end_idx = odd_bin_size + (i + 1) * bin_size
-        hist[i, :] = in_distr_filtered[args[start_idx:end_idx]]
+    # for i in range(bin_num):
+    #     start_idx = remainder_ev_per_bin + i * nb_ev_per_bin
+    #     end_idx = remainder_ev_per_bin + (i + 1) * nb_ev_per_bin
+    #     hist[i, :] = sig_distr_filtered[args[start_idx:end_idx]]
 
-    if odd_bin_size == 0:
+    # create the signal hist; first bin has regular nb of events + remainder events
+    # and is therefore a bit larger than the other bins
+    hist = []
+    hist.append(sig_distr_filtered[args[0:remainder_ev_per_bin+nb_ev_per_bin]])
+    for i in range(1, bin_num):
+        start_idx = remainder_ev_per_bin + i * nb_ev_per_bin
+        end_idx = remainder_ev_per_bin + (i + 1) * nb_ev_per_bin
+        hist.append(sig_distr_filtered[args[start_idx:end_idx]])
+
+    if remainder_ev_per_bin == 0:
         odd_bin = None
-        bins_limits = np.arange(bin_num) * bin_size
+        bins_limits = np.arange(bin_num) * nb_ev_per_bin # how many events in each bin
         bins_limits = args[bins_limits]
-        bins_limits = np.concatenate(([hist_edge_l],in_distr_filtered[bins_limits],
-                                    [in_distr_filtered[args[-1]]]))
+        bins_limits = np.concatenate(([hist_edge_l],sig_distr_filtered[bins_limits],
+                                    [sig_distr_filtered[args[-1]]]))
 
+    # else:
+    #     # The odd bin is the first bin, which contains the remainder events
+    #     odd_bin = sig_distr_filtered[args[:remainder_ev_per_bin]]
+
+    #     # Die Limits starten bei 0 (für den odd_bin) und dann jeweils am Anfang der regulären Bins
+    #     limit_indices = np.arange(bin_num) * nb_ev_per_bin + remainder_ev_per_bin
+    #     limit_indices = np.concatenate(([0], limit_indices))
+
+    #     bins_limits = sig_distr_filtered[args[limit_indices]]
+    #     # Letztes Limit (das Maximum) wird wie gewohnt angehängt
+    #     bins_limits = np.concatenate((bins_limits, [sig_distr_filtered[args[-1]]]))
+    #     bins_limits[0]=hist_edge_l
     else:
-        # odd_bin nimmt nun die ersten Elemente auf der linken Seite
-        odd_bin = in_distr_filtered[args[:odd_bin_size]]
+        # write a binning where odd bin and first regular bin are both in first bin
+        odd_bin = None
+        limit_indices = np.arange(bin_num) * nb_ev_per_bin
+        bins_limits = sig_distr_filtered[args[limit_indices]]
+        bins_limits = np.concatenate(([hist_edge_l], bins_limits[1:], [sig_distr_filtered[args[-1]]]))
 
-        # Die Limits starten bei 0 (für den odd_bin) und dann jeweils am Anfang der regulären Bins
-        limit_indices = np.arange(bin_num) * bin_size + odd_bin_size
-        limit_indices = np.concatenate(([0], limit_indices))
-
-        bins_limits = in_distr_filtered[args[limit_indices]]
-        # Letztes Limit (das Maximum) wird wie gewohnt angehängt
-        bins_limits = np.concatenate((bins_limits, [in_distr_filtered[args[-1]]]))
-        bins_limits[0]=hist_edge_l
 
     return (hist, odd_bin, bins_limits)

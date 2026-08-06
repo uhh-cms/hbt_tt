@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import functools
 import operator
+from IPython import embed
 from modules import logit, identity, asimov_significance, flats_binning, add_flow_bin
 
 """This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
@@ -31,16 +32,20 @@ colors = [
 np.seterr(invalid="raise")
 
 # my oversampling dl DNNs
-events_reference = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu'))
-events_train_dl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2.pt", map_location=torch.device('cpu'))
+events_reference = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_b.pt", map_location=torch.device('cpu'))# old: test_dl1
+events_train_dl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')) # old: test_dl2
 events_train_dl4 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu'))
 events_train_dl6 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl6.pt", map_location=torch.device('cpu'))
-
 # my oversampling sl DNNs
 events_train_dl2sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu'))
 events_train_dl1sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu'))
+
+# W decay mode
+# sl_mask = events_tt_train.process_id == 1100
+# dl_mask = events_tt_train.process_id == 1200
+# fh_mask = events_tt_train.process_id == 1300
 # events_train = events_train[events_train.run3_dnn_moe_hh > 0]
-for events, label1, label2 in zip([events_reference, events_train_dl4, events_train_dl2, events_train_dl6, events_train_dl2sl2, events_train_dl1sl2],
+for events, label1, label2 in zip([events_reference, events_train_dl2, events_train_dl4, events_train_dl6, events_train_dl2sl2, events_train_dl1sl2],
                                   ["equal sampling of W decay modes: (1,1,1)",
                                     "dl W decay mode oversampled: (1,1,2)",
                                     "dl W decay mode oversampled: (1,1,4)",
@@ -48,7 +53,9 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
                                     "dl and sl W decay mode oversampled: (1,2,2)",
                                     "sl W decay mode oversampled: (1,2,1)"],
                                     [111, 112, 114, 116, 122, 121]):
+    print(f"Processing label {label2}")
     for dataset in ["training", "validation", "test"]:
+        print("processing dataset: ", dataset)
         # split the tt bg data in three processes
         events_tt_dl = events[0][dataset][('tt', 1200)]
         events_tt_fh = events[0][dataset][('tt', 1300)]
@@ -65,24 +72,33 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
             "event_id": torch.cat([d["event_id"] for d in dicts]),
         }
         # get bin edges for flat s binning
-        bin_edges = flats_binning(events_hh["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
-        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+        # bin_edges = flats_binning(events_hh["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
+        # bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
         # check if two bin edges are the same
-        for i in range(len(bin_edges)):
-            for j in range(len(bin_edges)):
-                if (i != j) & (bin_edges[i] == bin_edges[j]):
-                    print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
+        # for i in range(len(bin_edges)):
+        #     for j in range(len(bin_edges)):
+        #         if (i != j) & (bin_edges[i] == bin_edges[j]):
+        #             print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
         # important: map hist edges to bin edges from flat-s binning
-        lower_border = bin_edges[0]
-        upper_border = bin_edges[-1]
+        # lower_border = bin_edges[0]
+        # upper_border = bin_edges[-1]
         # initialize hists with flat s binning edges
-        # hist.axis.variable(bin_edges, name="", label=r"")
-        dl_hist = Hist(hist.axis.Variable(bin_edges, name="dl_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        fh_hist = Hist(hist.axis.Variable(bin_edges, name="fh_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        sl_hist = Hist(hist.axis.Variable(bin_edges, name="sl_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        dy_hist = Hist(hist.axis.Variable(bin_edges, name="dy_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        hh_hist = Hist(hist.axis.Variable(bin_edges, name="hh_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="all_tt_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        # ---
+        # flat-s binning:
+        # dl_hist = Hist(hist.axis.Variable(bin_edges, name="dl_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        # fh_hist = Hist(hist.axis.Variable(bin_edges, name="fh_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        # sl_hist = Hist(hist.axis.Variable(bin_edges, name="sl_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        # dy_hist = Hist(hist.axis.Variable(bin_edges, name="dy_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        # hh_hist = Hist(hist.axis.Variable(bin_edges, name="hh_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        # all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="all_tt_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        # ---
+        # without flat-s:
+        dl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        fh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="fh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        sl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="sl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        dy_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dy_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        hh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="hh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        all_tt_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="all_tt_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
         # fill
         dl_hist.fill(func(events_tt_dl["scores"].numpy()[:, 0]), weight =events_tt_dl["event_weight"].numpy()* events_tt_dl["normalization_weights"].numpy())
         fh_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
@@ -92,7 +108,6 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
         all_tt_hist.fill(func(events_tt_dl["scores"].numpy()[:, 0]), weight =events_tt_dl["event_weight"].numpy()* events_tt_dl["normalization_weights"].numpy())
         all_tt_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
         all_tt_hist.fill(func(events_tt_sl["scores"].numpy()[:, 0]), weight =events_tt_sl["event_weight"].numpy()* events_tt_sl["normalization_weights"].numpy())
-
         sig_all, error_sig_all = asimov_significance(hh_hist, dy_hist, fh_hist, dl_hist, sl_hist, error_type="poisson_weighted")
         sig_dl, error_sig_dl = asimov_significance(hh_hist, dl_hist, error_type="poisson_weighted")
         sig_sl, error_sig_sl = asimov_significance(hh_hist, sl_hist, error_type="poisson_weighted")
@@ -103,8 +118,17 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
         scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
         # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
         # plot
-        x = bin_edges  # bin edges
-        x_bin_centers = (x[:-1] + x[1:]) / 2  # bin centers
+        # ---
+        # with flat-s
+        # x = bin_edges  # bin edges
+        # x_bin_centers = (x[:-1] + x[1:]) / 2  # bin centers
+        # ---
+        # without flat-s
+        lower_border = -14
+        upper_border = 11
+        x = np.linspace(-14, 11, n_bins + 1)  # bin edges
+        x = (x[:-1] + x[1:]) / 2  # bin centers
+        # ---
         x_lin_binedges = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
         x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
         fig, ax1 = plt.subplots(figsize=(9, 5))
@@ -132,10 +156,9 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
         ax1.set_yscale("log")
         yaxis_sig.set_yscale("log")
         ax1.set_ylabel('Number of events', color="black")
-
         # lower x axis with bin edges
         ax1.set_xticks(x_lin_binedges)  # Set label locations.
-        ax1.set_xticklabels(x.round(2), rotation=45)  # Set text labels.
+        ax1.set_xticklabels(x_lin_binedges.round(2), rotation=45)  # Set text labels.
         ax1.set_xlabel('HH output node')
 
         # upper x axis with bin numbers
@@ -149,7 +172,7 @@ for events, label1, label2 in zip([events_reference, events_train_dl4, events_tr
         # plt.legend(fontsize="small")
         # ax1.set_ylim(bottom=1e-1)
         # fig.tight_layout()
-        plt.title(fr"HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and tt background; {label1}; {dataset} data; flat-s binning; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
+        plt.title(fr"DNN with step learning rate; HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and background; {label1}; {dataset} data; flat-s binning; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
         plt.savefig(f"images/first_training_{label2}_{dataset}_ttdy", dpi=300, bbox_inches='tight')
         plt.show()
 
@@ -179,7 +202,6 @@ events_tt_dl = events_tt[events_tt.process_id == 1200]
 events_tt_fh = events_tt[events_tt.process_id == 1300]
 events_tt_sl = events_tt[events_tt.process_id == 1100]
 convert_to_logit = lambda x: func(x.run3_dnn_moe_hh)
-from IPython import embed; embed(header="MESSAGE Line 182 | File: first_training.py")
 # for i in [events_tt_dl, events_tt_fh, events_tt_sl, events_hh, events_dy]:
 #     i = convert_to_logit(i)
 # get bin edges for flat s binning
@@ -269,7 +291,7 @@ yaxis_sig.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_
 # plt.legend(fontsize="small")
 # ax1.set_ylim(bottom=1e-1)
 # fig.tight_layout()
-plt.title(fr"HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and tt background; original input file; flat-s binning; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
+plt.title(fr"HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and background; original input file; flat-s binning; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
 plt.savefig(f"images/input_file_ttdy", dpi=300, bbox_inches='tight')
 plt.show()
 

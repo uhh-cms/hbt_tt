@@ -5,14 +5,17 @@ ssh naf-cms11
 (2)
 ssh naf-gpu
 (kinit
-aklog)
+aklog
+source .bash_profile)
 goDNN
-python -m src.train.train -tn "modelname"
+python -m src.train.train -tn "name"
 --> model runs
 --> messages <INFO L:97-check_criteria: Checkpoint criteria trigger started at 2.407154E-01 - after 2 waiting epochs>
     show that mdoel has reached a new low in validation loss and a new version is saved (make sure that it is not a fluctuation!)
 
-python -m src.utils.evaluate --src "dl_2-sl_1-fh_1_fold0.pt" --fold 0 -fp "test_dl2.parquet" --add_activation softmax -e "training,validation,test"
+python -m src.utils.evaluate --src "dl_2-sl_1-fh_1_fold0.pt" --fold 0 -fp "test_dl2.parquet" --add_activation identity -e "training,validation,test"
+--> model evaluates
+--> add_activation identity means that the output already is in logit space. If <softmax> is chosen insted, the output scores go from 0 to 1.
 (3)
 ssh -L 10889:127.0.0.1:8889 naf-cms11
 goDNN

@@ -32,7 +32,10 @@ colors = [
 np.seterr(invalid="raise")
 
 # my oversampling dl DNNs
-events_reference = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_b.pt", map_location=torch.device('cpu'))# old: test_dl1
+events_reference_0 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu'))
+events_reference_a = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_d.pt", map_location=torch.device('cpu'))
+events_reference_b = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_e.pt", map_location=torch.device('cpu'))
+events_reference_c = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_f.pt", map_location=torch.device('cpu'))
 events_train_dl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')) # old: test_dl2
 events_train_dl4 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu'))
 events_train_dl6 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl6.pt", map_location=torch.device('cpu'))
@@ -45,14 +48,17 @@ events_train_dl1sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test
 # dl_mask = events_tt_train.process_id == 1200
 # fh_mask = events_tt_train.process_id == 1300
 # events_train = events_train[events_train.run3_dnn_moe_hh > 0]
-for events, label1, label2 in zip([events_reference, events_train_dl2, events_train_dl4, events_train_dl6, events_train_dl2sl2, events_train_dl1sl2],
-                                  ["equal sampling of W decay modes: (1,1,1)",
+for events, label1, label2 in zip([events_reference_0, events_reference_a, events_reference_b, events_reference_c, events_train_dl2, events_train_dl4, events_train_dl6, events_train_dl2sl2, events_train_dl1sl2],
+                                  ["equal sampling of W decay modes: (1,1,1); cosine-shaped LR",
+                                   r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$",
+                                   r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$",
+                                   r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-10^{-5}$",
                                     "dl W decay mode oversampled: (1,1,2)",
                                     "dl W decay mode oversampled: (1,1,4)",
                                     "dl W decay mode oversampled: (1,1,6)",
                                     "dl and sl W decay mode oversampled: (1,2,2)",
                                     "sl W decay mode oversampled: (1,2,1)"],
-                                    [111, 112, 114, 116, 122, 121]):
+                                    ["111_0", "111_d", "111_e", "111_g", "112", "114", "116", "122", "121"]):
     print(f"Processing label {label2}")
     for dataset in ["training", "validation", "test"]:
         print("processing dataset: ", dataset)
@@ -172,7 +178,7 @@ for events, label1, label2 in zip([events_reference, events_train_dl2, events_tr
         # plt.legend(fontsize="small")
         # ax1.set_ylim(bottom=1e-1)
         # fig.tight_layout()
-        plt.title(fr"DNN with step learning rate; HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and background; {label1}; {dataset} data; flat-s binning; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
+        plt.title(fr"DNN with step learning rate; HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and background; {label1}; {dataset} data; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
         plt.savefig(f"images/first_training_{label2}_{dataset}_ttdy", dpi=300, bbox_inches='tight')
         plt.show()
 

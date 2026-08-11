@@ -120,9 +120,8 @@ def asimov_significance(s, *b, error_type="poisson_weighted", eps_s=1e-9, eps_b=
     b_count = b_count + eps_b
 
     sigsquared_per_bin = 2 * ((s_count + b_count) * np.log(1 + s_count / (b_count )) - s_count) # asimov sig fct
-    if np.any(sigsquared_per_bin < 0):
-        print(colored("Warning: Negative significance squared values encountered. Setting them to 0.", "red"))
-        sigsquared_per_bin = np.where(sigsquared_per_bin < 0, 0, sigsquared_per_bin)
+    approx_sigsquared_per_bin = (s_count** 2 / (b_count + eps_b))  # approximate sig fct for s << b
+    sigsquared_per_bin = np.where(sigsquared_per_bin < 0, approx_sigsquared_per_bin, sigsquared_per_bin)
     sig_per_bin = np.sqrt(sigsquared_per_bin)+eps_sig
     error_per_bin = np.sqrt((np.log(s_count/b_count + 1)*s_error/sig_per_bin)**2 + (((np.log(s_count/b_count+1)*b_count - s_count)/b_count)*b_error/sig_per_bin)**2)
     return sig_per_bin, error_per_bin

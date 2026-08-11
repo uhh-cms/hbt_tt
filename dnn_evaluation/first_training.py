@@ -10,6 +10,7 @@ import functools
 import operator
 from IPython import embed
 from modules import logit, identity, asimov_significance, flats_binning, add_flow_bin
+from dnn_evaluation.structures import Process, AnalysisResult
 
 """This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
 meaning di-leptonic, semi-leptonic and full-hadronic W decay, for a flat-s binning. The Asimov significance is computed.
@@ -31,52 +32,29 @@ colors = [
 # to get better error messages:
 np.seterr(invalid="raise")
 
-# my oversampling dl DNNs
-events_reference_0 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu'))
-events_reference_a = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_d.pt", map_location=torch.device('cpu'))
-events_reference_b = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_e.pt", map_location=torch.device('cpu'))
-events_reference_c = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_f.pt", map_location=torch.device('cpu'))
-events_train_dl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')) # old: test_dl2
-events_train_dl4 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu'))
-events_train_dl6 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl6.pt", map_location=torch.device('cpu'))
-# my oversampling sl DNNs
-events_train_dl2sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu'))
-events_train_dl1sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu'))
+data_dnn_outputs = [
+    # my DNNs oversampling dl
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu')), "equal sampling of W decay modes: (1,1,1); cosine-shaped LR", "111_0"),
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_d.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$", "111_d"),
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_e.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$", "111_e"),
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_g.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-4\cdot 10^{-5}$", "111_g"),
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,2)", "112"),
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,4)", "114"),
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl6.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,6)", "116"),
+    # my DNNs oversampling sl
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu')), "dl and sl W decay mode oversampled: (1,2,2)", "112"),
+    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu')), "sl W decay mode oversampled: (1,2,1)", "121")
+]
 
-# W decay mode
-# sl_mask = events_tt_train.process_id == 1100
-# dl_mask = events_tt_train.process_id == 1200
-# fh_mask = events_tt_train.process_id == 1300
-# events_train = events_train[events_train.run3_dnn_moe_hh > 0]
-for events, label1, label2 in zip([events_reference_0, events_reference_a, events_reference_b, events_reference_c, events_train_dl2, events_train_dl4, events_train_dl6, events_train_dl2sl2, events_train_dl1sl2],
-                                  ["equal sampling of W decay modes: (1,1,1); cosine-shaped LR",
-                                   r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$",
-                                   r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$",
-                                   r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-10^{-5}$",
-                                    "dl W decay mode oversampled: (1,1,2)",
-                                    "dl W decay mode oversampled: (1,1,4)",
-                                    "dl W decay mode oversampled: (1,1,6)",
-                                    "dl and sl W decay mode oversampled: (1,2,2)",
-                                    "sl W decay mode oversampled: (1,2,1)"],
-                                    ["111_0", "111_d", "111_e", "111_g", "112", "114", "116", "122", "121"]):
-    print(f"Processing label {label2}")
+for d in data_dnn_outputs:
+    print(f"Processing label {d.label}")
     for dataset in ["training", "validation", "test"]:
         print("processing dataset: ", dataset)
+
+        # access all events
         # split the tt bg data in three processes
-        events_tt_dl = events[0][dataset][('tt', 1200)]
-        events_tt_fh = events[0][dataset][('tt', 1300)]
-        events_tt_sl = events[0][dataset][('tt', 1100)]
-        events_hh    = events[0][dataset][('hh', 21101)] # signal for kappa lambda = 1, kappa t = 1
-        # concatenate all dy events, which currently are stored as a dict:
-        dy_indices = [k[1] for k in events[0][dataset].keys() if k[0] == "dy"]
-        dicts = [(events[0][dataset][('dy', i)]) for i in dy_indices]
-        # TODO: code is error-prone as new columns added to the NN output will not be adopted immediately
-        events_dy = {
-            "scores": torch.cat([d["scores"] for d in dicts]),
-            "event_weight": torch.cat([d["event_weight"] for d in dicts]),
-            "normalization_weights": torch.cat([d["normalization_weights"] for d in dicts]),
-            "event_id": torch.cat([d["event_id"] for d in dicts]),
-        }
+        events_dict = d.get_events(dataset)
+
         # get bin edges for flat s binning
         # bin_edges = flats_binning(events_hh["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
         # bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
@@ -106,14 +84,15 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
         hh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="hh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
         all_tt_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="all_tt_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
         # fill
-        dl_hist.fill(func(events_tt_dl["scores"].numpy()[:, 0]), weight =events_tt_dl["event_weight"].numpy()* events_tt_dl["normalization_weights"].numpy())
-        fh_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
-        sl_hist.fill(func(events_tt_sl["scores"].numpy()[:, 0]), weight =events_tt_sl["event_weight"].numpy()* events_tt_sl["normalization_weights"].numpy())
-        dy_hist.fill(func(events_dy["scores"].numpy()[:, 0]), weight =events_dy["event_weight"].numpy()* events_dy["normalization_weights"].numpy())
-        hh_hist.fill(func(events_hh["scores"].numpy()[:, 0]), weight =events_hh["event_weight"].numpy()* events_hh["normalization_weights"].numpy())
-        all_tt_hist.fill(func(events_tt_dl["scores"].numpy()[:, 0]), weight =events_tt_dl["event_weight"].numpy()* events_tt_dl["normalization_weights"].numpy())
-        all_tt_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
-        all_tt_hist.fill(func(events_tt_sl["scores"].numpy()[:, 0]), weight =events_tt_sl["event_weight"].numpy()* events_tt_sl["normalization_weights"].numpy())
+        dl_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
+        fh_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
+        sl_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
+        dy_hist.fill(func(events_dict["events_dy"]["scores"].numpy()[:, 0]), weight =events_dict["events_dy"]["event_weight"].numpy()* events_dict["events_dy"]["normalization_weights"].numpy())
+        hh_hist.fill(func(events_dict["events_hh"]["scores"].numpy()[:, 0]), weight =events_dict["events_hh"]["event_weight"].numpy()* events_dict["events_hh"]["normalization_weights"].numpy())
+        all_tt_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
+        all_tt_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
+        all_tt_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
+
         sig_all, error_sig_all = asimov_significance(hh_hist, dy_hist, fh_hist, dl_hist, sl_hist, error_type="poisson_weighted")
         sig_dl, error_sig_dl = asimov_significance(hh_hist, dl_hist, error_type="poisson_weighted")
         sig_sl, error_sig_sl = asimov_significance(hh_hist, sl_hist, error_type="poisson_weighted")
@@ -178,8 +157,8 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
         # plt.legend(fontsize="small")
         # ax1.set_ylim(bottom=1e-1)
         # fig.tight_layout()
-        plt.title(fr"DNN with step learning rate; HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and background; {label1}; {dataset} data; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
-        plt.savefig(f"images/first_training_{label2}_{dataset}_ttdy", dpi=300, bbox_inches='tight')
+        plt.title(fr"HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and background; {d.description}; {dataset} data; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
+        plt.savefig(f"images/first_training_{d.label}_{dataset}_ttdy", dpi=300, bbox_inches='tight')
         plt.show()
 
 

@@ -8,18 +8,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 import functools
 import operator
+from termcolor import colored
 from IPython import embed
 from modules import logit, identity, asimov_significance, flats_binning, add_flow_bin
-from dnn_evaluation.structures import Process, AnalysisResult
+from structures import Process, HistFab
 
 """This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
 meaning di-leptonic, semi-leptonic and full-hadronic W decay, for a flat-s binning. The Asimov significance is computed.
 """
 n_bins = 10
 eps = 1e-6 # set eps=0 for normal scale
-lower_border = -1e2# set to 0 for lin scale
+lower_border_flats = -1e2# set to 0 for lin scale
 # upper_border = 12# set to 1 for lin scale
 func = identity
+
+# bin edges:
+# if flat-s binning is applied, these values will be overwritten by the flat-s ones
+lower_border = -14
+upper_border = 11
 
 label_color = '#4b2e83'
 colors = [
@@ -45,6 +51,7 @@ data_dnn_outputs = [
     Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu')), "dl and sl W decay mode oversampled: (1,2,2)", "112"),
     Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu')), "sl W decay mode oversampled: (1,2,1)", "121")
 ]
+print(colored ("data loaded, starting analysis now.", "yellow"))
 
 for d in data_dnn_outputs:
     print(f"Processing label {d.label}")
@@ -56,7 +63,10 @@ for d in data_dnn_outputs:
         events_dict = d.get_events(dataset)
 
         # get bin edges for flat s binning
-        # bin_edges = flats_binning(events_hh["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
+        lower_border, upper_border, bin_edges, bin_centers = d.get_flats_binedges(dataset, n_bins=10)
+
+        # older version (after testing dataclass, this one can be deleted):
+        # bin_edges = flats_binning(events_dict["events_hh"]["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
         # bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
         # check if two bin edges are the same
         # for i in range(len(bin_edges)):
@@ -77,41 +87,61 @@ for d in data_dnn_outputs:
         # all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="all_tt_hist", label=r"", flow=True), storage=hist.storage.Weight())
         # ---
         # without flat-s:
-        dl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        fh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="fh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        sl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="sl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        dy_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dy_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        hh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="hh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        all_tt_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="all_tt_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        # fill
-        dl_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
-        fh_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
-        sl_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
-        dy_hist.fill(func(events_dict["events_dy"]["scores"].numpy()[:, 0]), weight =events_dict["events_dy"]["event_weight"].numpy()* events_dict["events_dy"]["normalization_weights"].numpy())
-        hh_hist.fill(func(events_dict["events_hh"]["scores"].numpy()[:, 0]), weight =events_dict["events_hh"]["event_weight"].numpy()* events_dict["events_hh"]["normalization_weights"].numpy())
-        all_tt_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
-        all_tt_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
-        all_tt_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
+        hists = [HistFab("all_tt_hist", ["events_tt_dl", "events_tt_sl", "events_tt_fh"], "red", "tt: all events"),
+                 HistFab("sl_hist", ["events_tt_sl"], 'green', "tt: sl events"),
+                 HistFab("dl_hist", ["events_tt_dl"], 'blue', "tt: dl events"),
+                 HistFab("fh_hist", ["events_tt_fh"], 'tab:brown', "tt: fh events"),
+                 HistFab("dy_hist", ["events_dy"], 'tab:orange', "dy: all events"),
+                 HistFab("hh_hist", ["events_hh"], "black", "hh: all events")
+        ]
 
-        sig_all, error_sig_all = asimov_significance(hh_hist, dy_hist, fh_hist, dl_hist, sl_hist, error_type="poisson_weighted")
-        sig_dl, error_sig_dl = asimov_significance(hh_hist, dl_hist, error_type="poisson_weighted")
-        sig_sl, error_sig_sl = asimov_significance(hh_hist, sl_hist, error_type="poisson_weighted")
-        sig_fh, error_sig_fh = asimov_significance(hh_hist, fh_hist, error_type="poisson_weighted")
+        histograms = {}
+        for h in hists:
+            histogram = h.create_hist(n_bins, lower_border, upper_border)
+            for key in h.event_keys:
+                h.fill_hist(
+                    histogram,
+                    func,
+                    events_dict[key]["scores"].numpy()[:, 0],
+                    events_dict[key]["event_weight"].numpy() *
+                    events_dict[key]["normalization_weights"].numpy()
+                    )
+            histograms[h.name] = histogram
+        from IPython import embed; embed(header="MESSAGE Line 111 | File: first_training.py")
+        # dl_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="dl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # fh_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="fh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # sl_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="sl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # dy_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="dy_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # hh_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="hh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # all_tt_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="all_tt_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # fill
+        # dl_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
+        # fh_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
+        # sl_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
+        # dy_hist.fill(func(events_dict["events_dy"]["scores"].numpy()[:, 0]), weight =events_dict["events_dy"]["event_weight"].numpy()* events_dict["events_dy"]["normalization_weights"].numpy())
+        # hh_hist.fill(func(events_dict["events_hh"]["scores"].numpy()[:, 0]), weight =events_dict["events_hh"]["event_weight"].numpy()* events_dict["events_hh"]["normalization_weights"].numpy())
+        # all_tt_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
+        # all_tt_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
+        # all_tt_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
+
+        sig_all, error_sig_all = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
+        sig_dl, error_sig_dl = asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")
+        sig_sl, error_sig_sl = asimov_significance(histograms["hh_hist"], histograms["sl_hist"], error_type="poisson_weighted")
+        sig_fh, error_sig_fh = asimov_significance(histograms["hh_hist"], histograms["fh_hist"], error_type="poisson_weighted")
         all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
         all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
         all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
-        scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
+        scaling_factor = ((add_flow_bin(histograms["hh_hist"]).sum())/ (add_flow_bin(histograms["all_tt_hist"]).sum() + add_flow_bin(histograms["dy_hist"]).sum()))**(-1)
         # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
         # plot
         # ---
         # with flat-s
-        # x = bin_edges  # bin edges
-        # x_bin_centers = (x[:-1] + x[1:]) / 2  # bin centers
+        # x = bin_edges
+        # x_bin_centers = (x[:-1] + x[1:]) / 2
         # ---
         # without flat-s
-        lower_border = -14
-        upper_border = 11
-        x = np.linspace(-14, 11, n_bins + 1)  # bin edges
+
+        x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
         x = (x[:-1] + x[1:]) / 2  # bin centers
         # ---
         x_lin_binedges = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
@@ -161,13 +191,6 @@ for d in data_dnn_outputs:
         plt.savefig(f"images/first_training_{d.label}_{dataset}_ttdy", dpi=300, bbox_inches='tight')
         plt.show()
 
-
-        sl_hist.reset()
-        dl_hist.reset()
-        fh_hist.reset()
-        dy_hist.reset()
-        all_tt_hist.reset()
-        hh_hist.reset()
 
 ################################################################################################
 ################################################################################################

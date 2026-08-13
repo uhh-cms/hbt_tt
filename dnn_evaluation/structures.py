@@ -7,21 +7,34 @@ from hist import Hist
 from dataclasses import dataclass
 from modules import flats_binning
 
+from modules import logit
 
-@dataclass
-class Process:
-    """
-    Class to store the datasets to process, together with its labels."""
-    events: object
-    description: str
-    label: str
+class ProcessAgregator:
+    def __init__(self) -> None:
+        self.processes = {}
 
-    def get_events(self, dataset):
-        data = self.events[0][dataset]
+    def register_process(self, array, flavor, label, description, **kwargs):
+        if flavor == "cf":
+            self._register_columnflow_array(array, **kwargs)
+        elif flavor == "torch":
+            self._register_pt_array(array=array, label=label, description=description, **kwargs)
+        else:
+            raise ValueError(f"Unsupported file type: {file_type}")
+
+
+    def get_process(self, label):
+        pass
+
+    def _register_pt_array(self, array, label, description, which):
+        data = array
 
         # Extrawurst for DY data
         # concatenate all dy events, which currently are stored as a dict:
-        dy_indices = [k[1] for k in data.keys() if k[0] == "dy"]
+        from IPython import embed; embed(header="MESSAGE Line 33 | File: structures.py")
+        for w in which:
+            data[0][w]
+
+        dy_indices = [k[1] for k in data[0][which].keys() if k[0] == "dy"]
         dicts = [(data[('dy', i)]) for i in dy_indices]
 
         # TODO: code is error-prone as new columns added to the NN output will not be adopted immediately
@@ -32,13 +45,73 @@ class Process:
             "event_id": torch.cat([d["event_id"] for d in dicts]),
         }
         # store all categories in a dict:
-        return {
-            "events_tt_dl": data[("tt", 1200)],
-            "events_tt_fh": data[("tt", 1300)],
-            "events_tt_sl": data[("tt", 1100)],
-            "events_hh": data[("hh", 21101)],
-            "events_dy": events_dy
+
+        data = {
+            "tt_dl": data[("tt", 1200)],
+            "tt_fh": data[("tt", 1300)],
+            "tt_sl": data[("tt", 1100)],
+            "hh": data[("hh", 21101)],
+            "dy": events_dy
         }
+
+
+
+        for name, events in data.items():
+            _process_type = name.split("_")[0]
+
+            process = Process(
+                events = data[key],
+                subprocess = name,
+                label = label,
+                process_type = _process_type
+            )
+            self.processes[name] = process
+
+    def _register_columnflow_array(self, data, **kwargs):
+        from IPython import embed; embed(header="MESSAGE Line 68 | File: structures.py")
+        filter_default = data.run3_dnn_moe_hh > 0
+        data = data[filter_default]
+        # default plotting is in logit space; otherwise change func to identity
+
+        data = logit(data.run3_dnn_moe_hh)
+
+        unique_process_id = list(sorted(np.unique(data.process_id)))
+        events = {}
+        if (1100,1200,1300) in unique_process_id:
+            label = "tt"
+            events["tt_dl"] = data[data.process_id == 1200]
+            events["tt_fh"] = data[data.process_id == 1300]
+            events["tt_sl"] = data[data.process_id == 1100]
+
+        elif 21101 in unique_process_id:
+            events["hh"] = data[data.process_id == 21101]
+            label = "hh"
+        else:
+            label = "dy"
+            events["dy"] = data
+
+        for name , _events in events.items():
+            process = Process(
+                events = _events,
+                description = name,
+                label = label,
+                process_type = name.split("_")[0]
+            )
+            self.processes[process] = process
+
+    def get_process_name_from_id(id):
+        # TODO use global id to name matching
+        labels = {
+            1300 : "events_tt_fh",
+            1200 : "events_tt_dl",
+            1100 : "events_tt_sl",
+            21101 : "events_hh",
+        }
+        return labels.get(id, "events_dy")
+
+
+
+
 
     def get_flats_binedges(self, dataset, n_bins=10):
         lower_border_flats = -1e2
@@ -55,6 +128,21 @@ class Process:
         upper_border = bin_edges[-1]
         return lower_border, upper_border, bin_edges, bin_centers
 
+
+
+
+@dataclass
+class Process:
+    """
+    Class to store the datasets to process, together with its labels."""
+    events: object
+    subprocess: str
+    label: str
+    process_type: str
+
+
+
+
 @dataclass
 class HistFab:
     """
@@ -68,7 +156,8 @@ class HistFab:
         return {
             "name": self.name,
             "color": self.color,
-            "label": self.label
+            "label": self.label,
+            "type": self.type
         }
 
     def create_hist(self, n_bins, lower_border, upper_border):

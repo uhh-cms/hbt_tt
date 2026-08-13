@@ -11,7 +11,7 @@ import operator
 from termcolor import colored
 from IPython import embed
 from modules import logit, identity, asimov_significance, flats_binning, add_flow_bin
-from structures import Process, HistFab
+from structures import ProcessAgregator, Process, HistFab
 
 """This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
 meaning di-leptonic, semi-leptonic and full-hadronic W decay, for a flat-s binning. The Asimov significance is computed.
@@ -38,21 +38,23 @@ colors = [
 # to get better error messages:
 np.seterr(invalid="raise")
 
-data_dnn_outputs = [
+# data_dnn_outputs = [
     # my DNNs oversampling dl
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu')), "equal sampling of W decay modes: (1,1,1); cosine-shaped LR", "111_0"),
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_d.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$", "111_d"),
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_e.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$", "111_e"),
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_g.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-4\cdot 10^{-5}$", "111_g"),
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,2)", "112"),
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,4)", "114"),
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl6.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,6)", "116"),
-    # my DNNs oversampling sl
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu')), "dl and sl W decay mode oversampled: (1,2,2)", "112"),
-    Process(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu')), "sl W decay mode oversampled: (1,2,1)", "121")
-]
+from IPython import embed; embed(header="MESSAGE Line 43 | File: first_training.py")
+ProcessAgregator.register_process(array=torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu')), flavor="torch", label="111_0", description="equal sampling of W decay modes: (1,1,1); cosine-shaped LR")
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_d.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$", "111_d", process_type="torch_tensor"),
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_e.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$", "111_e", process_type="torch_tensor"),
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_g.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-4\cdot 10^{-5}$", "111_g", process_type="torch_tensor"),
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,2)", "112", process_type="torch_tensor"),
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,4)", "114", process_type="torch_tensor"),
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl6.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,6)", "116", process_type="torch_tensor"),
+# my DNNs oversampling sl
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu')), "dl and sl W decay mode oversampled: (1,2,2)", "112", process_type="torch_tensor"),
+ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu')), "sl W decay mode oversampled: (1,2,1)", "121", process_type="torch_tensor")
+# ]
 print(colored ("data loaded, starting analysis now.", "yellow"))
-
+events_tt_dl, events_tt_fh, events_tt_sl = ProcessAgregator(ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet"), "tt background", "tt", process_type="columflow_object")
+from IPython import embed; embed(header="MESSAGE Line 56 | File: first_training.py")
 for d in data_dnn_outputs:
     print(f"Processing label {d.label}")
     for dataset in ["training", "validation", "test"]:
@@ -62,31 +64,6 @@ for d in data_dnn_outputs:
         # split the tt bg data in three processes
         events_dict = d.get_events(dataset)
 
-        # get bin edges for flat s binning
-        lower_border, upper_border, bin_edges, bin_centers = d.get_flats_binedges(dataset, n_bins=10)
-
-        # older version (after testing dataclass, this one can be deleted):
-        # bin_edges = flats_binning(events_dict["events_hh"]["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
-        # bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
-        # check if two bin edges are the same
-        # for i in range(len(bin_edges)):
-        #     for j in range(len(bin_edges)):
-        #         if (i != j) & (bin_edges[i] == bin_edges[j]):
-        #             print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
-        # important: map hist edges to bin edges from flat-s binning
-        # lower_border = bin_edges[0]
-        # upper_border = bin_edges[-1]
-        # initialize hists with flat s binning edges
-        # ---
-        # flat-s binning:
-        # dl_hist = Hist(hist.axis.Variable(bin_edges, name="dl_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # fh_hist = Hist(hist.axis.Variable(bin_edges, name="fh_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # sl_hist = Hist(hist.axis.Variable(bin_edges, name="sl_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # dy_hist = Hist(hist.axis.Variable(bin_edges, name="dy_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # hh_hist = Hist(hist.axis.Variable(bin_edges, name="hh_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="all_tt_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # ---
-        # without flat-s:
         hists = [HistFab("all_tt_hist", ["events_tt_dl", "events_tt_sl", "events_tt_fh"], "red", "tt: all events"),
                  HistFab("sl_hist", ["events_tt_sl"], 'green', "tt: sl events"),
                  HistFab("dl_hist", ["events_tt_dl"], 'blue', "tt: dl events"),
@@ -94,6 +71,12 @@ for d in data_dnn_outputs:
                  HistFab("dy_hist", ["events_dy"], 'tab:orange', "dy: all events"),
                  HistFab("hh_hist", ["events_hh"], "black", "hh: all events")
         ]
+
+        # get bin edges for flat s binning
+        # if you want flat s binning, use these lines, comment out the linspace and change the create_hist fct to create_hist_flats below
+        # lower_border, upper_border, bin_edges, bin_centers = d.get_flats_binedges(dataset, n_bins=10)
+        # x = bin_edges
+        # x_bin_centers = (x[:-1] + x[1:]) / 2
 
         histograms = {}
         for h in hists:
@@ -107,22 +90,6 @@ for d in data_dnn_outputs:
                     events_dict[key]["normalization_weights"].numpy()
                     )
             histograms[h.name] = histogram
-        from IPython import embed; embed(header="MESSAGE Line 111 | File: first_training.py")
-        # dl_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="dl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        # fh_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="fh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        # sl_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="sl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        # dy_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="dy_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        # hh_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="hh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        # all_tt_hist = Hist(hist.axis.Regular(n_bins, lower_border, upper_border, name="all_tt_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        # fill
-        # dl_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
-        # fh_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
-        # sl_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
-        # dy_hist.fill(func(events_dict["events_dy"]["scores"].numpy()[:, 0]), weight =events_dict["events_dy"]["event_weight"].numpy()* events_dict["events_dy"]["normalization_weights"].numpy())
-        # hh_hist.fill(func(events_dict["events_hh"]["scores"].numpy()[:, 0]), weight =events_dict["events_hh"]["event_weight"].numpy()* events_dict["events_hh"]["normalization_weights"].numpy())
-        # all_tt_hist.fill(func(events_dict["events_tt_dl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_dl"]["event_weight"].numpy()* events_dict["events_tt_dl"]["normalization_weights"].numpy())
-        # all_tt_hist.fill(func(events_dict["events_tt_fh"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_fh"]["event_weight"].numpy()* events_dict["events_tt_fh"]["normalization_weights"].numpy())
-        # all_tt_hist.fill(func(events_dict["events_tt_sl"]["scores"].numpy()[:, 0]), weight =events_dict["events_tt_sl"]["event_weight"].numpy()* events_dict["events_tt_sl"]["normalization_weights"].numpy())
 
         sig_all, error_sig_all = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
         sig_dl, error_sig_dl = asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")
@@ -132,14 +99,6 @@ for d in data_dnn_outputs:
         all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
         all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
         scaling_factor = ((add_flow_bin(histograms["hh_hist"]).sum())/ (add_flow_bin(histograms["all_tt_hist"]).sum() + add_flow_bin(histograms["dy_hist"]).sum()))**(-1)
-        # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
-        # plot
-        # ---
-        # with flat-s
-        # x = bin_edges
-        # x_bin_centers = (x[:-1] + x[1:]) / 2
-        # ---
-        # without flat-s
 
         x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
         x = (x[:-1] + x[1:]) / 2  # bin centers
@@ -148,12 +107,12 @@ for d in data_dnn_outputs:
         x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
         fig, ax1 = plt.subplots(figsize=(9, 5))
         fig.subplots_adjust(right=0.85)
-        ax1.stairs(add_flow_bin(all_tt_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
-        ax1.stairs(add_flow_bin(sl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='green', label=r"tt: sl decay")
-        ax1.stairs(add_flow_bin(dl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='blue', label=r"tt: dl decay")
-        ax1.stairs(add_flow_bin(fh_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:brown', label=r"tt: fh decay")
-        ax1.stairs(add_flow_bin(dy_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:orange', label=r"dy")
-        ax1.stairs(add_flow_bin(hh_hist)*scaling_factor, edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor="black", label=fr"signal x {round(scaling_factor)}")
+        ax1.stairs(add_flow_bin(histograms["all_tt_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
+        ax1.stairs(add_flow_bin(histograms["sl_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='green', label=r"tt: sl decay")
+        ax1.stairs(add_flow_bin(histograms["dl_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='blue', label=r"tt: dl decay")
+        ax1.stairs(add_flow_bin(histograms["fh_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:brown', label=r"tt: fh decay")
+        ax1.stairs(add_flow_bin(histograms["dy_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:orange', label=r"dy")
+        ax1.stairs(add_flow_bin(histograms["hh_hist"])*scaling_factor, edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor="black", label=fr"signal x {round(scaling_factor)}")
 
         ax1.tick_params(axis='y', labelcolor='black')
 

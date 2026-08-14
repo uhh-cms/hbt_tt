@@ -10,6 +10,9 @@ from modules import flats_binning
 from modules import logit
 
 class ProcessAgregator:
+    """
+    collect signal and background events from two possible input types: pytorch tensor and columflow ak array
+    """
     def __init__(self) -> None:
         self.processes = {}
 
@@ -25,42 +28,35 @@ class ProcessAgregator:
     def get_process(self, label):
         pass
 
-    def _register_pt_array(self, array, label, description, which):
+    def _register_pt_array(self, array, label, description):
         data = array
-
-        # Extrawurst for DY data
-        # concatenate all dy events, which currently are stored as a dict:
-        from IPython import embed; embed(header="MESSAGE Line 33 | File: structures.py")
-        for w in which:
-            data[0][w]
-
-        dy_indices = [k[1] for k in data[0][which].keys() if k[0] == "dy"]
-        dicts = [(data[('dy', i)]) for i in dy_indices]
+        dy_indices = [] # collect all dy indices
+        # dy_dict = {} # new dict to store all dy data together
+        for dataset in ["training", "validation", "test"]:
+            dy_indices = [k[1] for k in data[0][dataset].keys() if k[0] == "dy"]
+            dicts = [(data[0][dataset][('dy', i)]) for i in dy_indices]
 
         # TODO: code is error-prone as new columns added to the NN output will not be adopted immediately
-        events_dy = {
-            "scores": torch.cat([d["scores"] for d in dicts]),
-            "event_weight": torch.cat([d["event_weight"] for d in dicts]),
-            "normalization_weights": torch.cat([d["normalization_weights"] for d in dicts]),
-            "event_id": torch.cat([d["event_id"] for d in dicts]),
-        }
-        # store all categories in a dict:
+            events_dy = {
+                "scores": torch.cat([d["scores"] for d in dicts]),
+                "event_weight": torch.cat([d["event_weight"] for d in dicts]),
+                "normalization_weights": torch.cat([d["normalization_weights"] for d in dicts]),
+                "event_id": torch.cat([d["event_id"] for d in dicts]),
+            }
 
+        # store all categories in a dict:
         data = {
-            "tt_dl": data[("tt", 1200)],
-            "tt_fh": data[("tt", 1300)],
-            "tt_sl": data[("tt", 1100)],
-            "hh": data[("hh", 21101)],
+            "tt_dl": data[0][dataset][("tt", 1200)],
+            "tt_fh": data[0][dataset][("tt", 1300)],
+            "tt_sl": data[0][dataset][("tt", 1100)],
+            "hh": data[0][dataset][("hh", 21101)],
             "dy": events_dy
         }
 
-
-
         for name, events in data.items():
             _process_type = name.split("_")[0]
-
             process = Process(
-                events = data[key],
+                events = data[name],
                 subprocess = name,
                 label = label,
                 process_type = _process_type
@@ -68,16 +64,15 @@ class ProcessAgregator:
             self.processes[name] = process
 
     def _register_columnflow_array(self, data, **kwargs):
-        from IPython import embed; embed(header="MESSAGE Line 68 | File: structures.py")
         filter_default = data.run3_dnn_moe_hh > 0
         data = data[filter_default]
-        # default plotting is in logit space; otherwise change func to identity
 
-        data = logit(data.run3_dnn_moe_hh)
+        # default plotting is in logit space; otherwise change func to identity
+        # convert_to_logit = lambda x: func(x.run3_dnn_moe_hh)
 
         unique_process_id = list(sorted(np.unique(data.process_id)))
         events = {}
-        if (1100,1200,1300) in unique_process_id:
+        if 1100 in unique_process_id:
             label = "tt"
             events["tt_dl"] = data[data.process_id == 1200]
             events["tt_fh"] = data[data.process_id == 1300]
@@ -89,15 +84,15 @@ class ProcessAgregator:
         else:
             label = "dy"
             events["dy"] = data
-
+        from IPython import embed; embed(header="MAYBE LAST TODO: fix how the different processes are concatenated! Line 88 | File: structures.py")
         for name , _events in events.items():
             process = Process(
                 events = _events,
-                description = name,
+                subprocess = name,
                 label = label,
                 process_type = name.split("_")[0]
             )
-            self.processes[process] = process
+            self.processes[name] = process
 
     def get_process_name_from_id(id):
         # TODO use global id to name matching

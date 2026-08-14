@@ -40,17 +40,23 @@ np.seterr(invalid="raise")
 
 # data_dnn_outputs = [
     # my DNNs oversampling dl
-from IPython import embed; embed(header="MESSAGE Line 43 | File: first_training.py")
+path_dnn = "/data/dust/user/hergesk/HH_DNN/evaluation"
+p = ProcessAgregator()
+p._register_pt_array(array=torch.load(path_dnn+"/august_tt_111_d.pt", map_location=torch.device('cpu')), label="tt", description=r"equal sampling of W decay modes: (1,1,1); constantLR: $10^{-3}$")
+c = ProcessAgregator()
+c._register_columnflow_array(ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet"))
+from IPython import embed; embed(header="MESSAGE Line 46 | File: first_training.py")
+
 ProcessAgregator.register_process(array=torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu')), flavor="torch", label="111_0", description="equal sampling of W decay modes: (1,1,1); cosine-shaped LR")
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_d.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$", "111_d", process_type="torch_tensor"),
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_e.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$", "111_e", process_type="torch_tensor"),
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_g.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-4\cdot 10^{-5}$", "111_g", process_type="torch_tensor"),
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,2)", "112", process_type="torch_tensor"),
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,4)", "114", process_type="torch_tensor"),
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl6.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,6)", "116", process_type="torch_tensor"),
+ProcessAgregator(torch.load(path_dnn+"/august_tt_111_d.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$", "111_d", process_type="torch_tensor"),
+ProcessAgregator(torch.load(path_dnn+"/august_tt_111_e.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$", "111_e", process_type="torch_tensor"),
+ProcessAgregator(torch.load(path_dnn+"/august_tt_111_g.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-4\cdot 10^{-5}$", "111_g", process_type="torch_tensor"),
+ProcessAgregator(torch.load(path_dnn+"/august_tt_112.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,2)", "112", process_type="torch_tensor"),
+ProcessAgregator(torch.load(path_dnn+"/test_dl4.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,4)", "114", process_type="torch_tensor"),
+ProcessAgregator(torch.load(path_dnn+"/test_dl6.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,6)", "116", process_type="torch_tensor"),
 # my DNNs oversampling sl
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu')), "dl and sl W decay mode oversampled: (1,2,2)", "112", process_type="torch_tensor"),
-ProcessAgregator(torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu')), "sl W decay mode oversampled: (1,2,1)", "121", process_type="torch_tensor")
+ProcessAgregator(torch.load(path_dnn+"/test_dl2sl2.pt", map_location=torch.device('cpu')), "dl and sl W decay mode oversampled: (1,2,2)", "112", process_type="torch_tensor"),
+ProcessAgregator(torch.load(path_dnn+"/test_dl1sl2.pt", map_location=torch.device('cpu')), "sl W decay mode oversampled: (1,2,1)", "121", process_type="torch_tensor")
 # ]
 print(colored ("data loaded, starting analysis now.", "yellow"))
 events_tt_dl, events_tt_fh, events_tt_sl = ProcessAgregator(ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet"), "tt background", "tt", process_type="columflow_object")

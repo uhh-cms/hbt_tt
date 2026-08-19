@@ -11,7 +11,7 @@ import operator
 from termcolor import colored
 from IPython import embed
 from modules import logit, identity, asimov_significance, flats_binning, add_flow_bin
-from structures import ProcessAgregator, Process, HistFab
+from structures import ProcessLoader, Process, HistFab
 
 """This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
 meaning di-leptonic, semi-leptonic and full-hadronic W decay, for a flat-s binning. The Asimov significance is computed.
@@ -38,44 +38,42 @@ colors = [
 # to get better error messages:
 np.seterr(invalid="raise")
 
-# data_dnn_outputs = [
-    # my DNNs oversampling dl
-path_dnn = "/data/dust/user/hergesk/HH_DNN/evaluation"
-p = ProcessAgregator()
-p._register_pt_array(array=torch.load(path_dnn+"/august_tt_111_d.pt", map_location=torch.device('cpu')), label="tt", description=r"equal sampling of W decay modes: (1,1,1); constantLR: $10^{-3}$")
-c = ProcessAgregator()
-c._register_columnflow_array(ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet"))
-from IPython import embed; embed(header="MESSAGE Line 46 | File: first_training.py")
 
-ProcessAgregator.register_process(array=torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu')), flavor="torch", label="111_0", description="equal sampling of W decay modes: (1,1,1); cosine-shaped LR")
-ProcessAgregator(torch.load(path_dnn+"/august_tt_111_d.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$", "111_d", process_type="torch_tensor"),
-ProcessAgregator(torch.load(path_dnn+"/august_tt_111_e.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$", "111_e", process_type="torch_tensor"),
-ProcessAgregator(torch.load(path_dnn+"/august_tt_111_g.pt", map_location=torch.device('cpu')), r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-4\cdot 10^{-5}$", "111_g", process_type="torch_tensor"),
-ProcessAgregator(torch.load(path_dnn+"/august_tt_112.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,2)", "112", process_type="torch_tensor"),
-ProcessAgregator(torch.load(path_dnn+"/test_dl4.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,4)", "114", process_type="torch_tensor"),
-ProcessAgregator(torch.load(path_dnn+"/test_dl6.pt", map_location=torch.device('cpu')), "dl W decay mode oversampled: (1,1,6)", "116", process_type="torch_tensor"),
-# my DNNs oversampling sl
-ProcessAgregator(torch.load(path_dnn+"/test_dl2sl2.pt", map_location=torch.device('cpu')), "dl and sl W decay mode oversampled: (1,2,2)", "112", process_type="torch_tensor"),
-ProcessAgregator(torch.load(path_dnn+"/test_dl1sl2.pt", map_location=torch.device('cpu')), "sl W decay mode oversampled: (1,2,1)", "121", process_type="torch_tensor")
-# ]
+
+path_dnn = "/data/dust/user/hergesk/HH_DNN/evaluation"
+path_old_dnn = "/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24"
+process_loader = ProcessLoader()
+
+data_dnn_outputs = [
+    # my DNNs oversampling dl
+    process_loader.load_process(path_dnn+"/referenz_dl1.pt", label="111_0", description="equal sampling of W decay modes: (1,1,1); cosine-shaped LR"),
+    # process_loader.load_process(path_dnn+"/august_tt_111_d.pt", label="111_d", description=r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$"),
+    # process_loader.load_process(path_dnn+"/august_tt_111_e.pt", label="111_e", description=r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$"),
+    # process_loader.load_process(path_dnn+"/august_tt_111_g.pt", label="111_g", description=r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-4\cdot 10^{-5}$"),
+    # process_loader.load_process(path_dnn+"/august_tt_112.pt", label="112", description="dl W decay mode oversampled: (1,1,2)"),
+    # process_loader.load_process(path_dnn+"/test_dl4.pt", label="114", description="dl W decay mode oversampled: (1,1,4)"),
+    # process_loader.load_process(path_dnn+"/test_dl6.pt", label="dl6", description="dl W decay mode oversampled: (1,1,6)"),
+    #   # my DNNs oversampling sl
+    # process_loader.load_process(path_dnn+"/test_dl2sl2.pt", label="112", description="dl and sl W decay mode oversampled: (1,2,2)"),
+    # process_loader.load_process(path_dnn+"/test_dl1sl2.pt", label="121", description="sl W decay mode oversampled: (1,2,1)"),
+      # sanity check: old DNNS
+    process_loader.load_process(path_old_dnn+"/tt_22pre_v14.parquet", label="input_file",description="")
+]
 print(colored ("data loaded, starting analysis now.", "yellow"))
-events_tt_dl, events_tt_fh, events_tt_sl = ProcessAgregator(ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet"), "tt background", "tt", process_type="columflow_object")
-from IPython import embed; embed(header="MESSAGE Line 56 | File: first_training.py")
 for d in data_dnn_outputs:
     print(f"Processing label {d.label}")
     for dataset in ["training", "validation", "test"]:
         print("processing dataset: ", dataset)
-
         # access all events
         # split the tt bg data in three processes
-        events_dict = d.get_events(dataset)
-
-        hists = [HistFab("all_tt_hist", ["events_tt_dl", "events_tt_sl", "events_tt_fh"], "red", "tt: all events"),
-                 HistFab("sl_hist", ["events_tt_sl"], 'green', "tt: sl events"),
-                 HistFab("dl_hist", ["events_tt_dl"], 'blue', "tt: dl events"),
-                 HistFab("fh_hist", ["events_tt_fh"], 'tab:brown', "tt: fh events"),
-                 HistFab("dy_hist", ["events_dy"], 'tab:orange', "dy: all events"),
-                 HistFab("hh_hist", ["events_hh"], "black", "hh: all events")
+        # events_dict = d.get_events(dataset)
+        from IPython import embed; embed(header="MESSAGE Line 70 | File: first_training.py")
+        hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=d.flavor),
+                 HistFab("sl_hist", ["tt_sl"], 'green', "tt: sl events", flavor=d.flavor),
+                 HistFab("dl_hist", ["tt_dl"], 'blue', "tt: dl events", flavor=d.flavor),
+                 HistFab("fh_hist", ["tt_fh"], 'tab:brown', "tt: fh events", flavor=d.flavor),
+                 HistFab("dy_hist", ["dy"], 'tab:orange', "dy: all events", flavor=d.flavor),
+                 HistFab("hh_hist", ["hh_kl1kt1"], "black", "hh: all events", flavor=d.flavor)
         ]
 
         # get bin edges for flat s binning
@@ -91,9 +89,7 @@ for d in data_dnn_outputs:
                 h.fill_hist(
                     histogram,
                     func,
-                    events_dict[key]["scores"].numpy()[:, 0],
-                    events_dict[key]["event_weight"].numpy() *
-                    events_dict[key]["normalization_weights"].numpy()
+                    d
                     )
             histograms[h.name] = histogram
 
@@ -155,11 +151,13 @@ for d in data_dnn_outputs:
         plt.title(fr"HH output node for signal ($\kappa_\lambda = 1, \kappa_t = 1$) and background; {d.description}; {dataset} data; total Asimov significance: $Z_A$ = {round(all_sig_tot[0], 5)}", wrap=True, pad=13)
         plt.savefig(f"images/first_training_{d.label}_{dataset}_ttdy", dpi=300, bbox_inches='tight')
         plt.show()
+        plt.close()
 
 
 ################################################################################################
 ################################################################################################
 ################################################################################################
+from IPython import embed; embed(header="MESSAGE Line 162 | File: first_training.py")
 # sanity-check: "old data"
 func = logit
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet")

@@ -6,41 +6,62 @@ import hist
 from hist import Hist
 from dataclasses import dataclass
 from modules import flats_binning
+from pathlib import Path
+import awkward as ak
 
 from modules import logit
 
-class ProcessAgregator:
+
+class ProcessLoader:
     """
-    collect signal and background events from two possible input types: pytorch tensor and columflow ak array
+    load signal and background events from two possible input types: pytorch tensor and columflow ak array
+    and bring it in the shape we need:
+    - hh: signal
+    - dy: background
+    - tt: background split in W decay mode
+        -> tt dl
+        -> tt sl
+        -> tt fh
+
+    Input: Data path and label (torch tensor and ak array origin both allowed)
+    Output: sorted data
     """
-    def __init__(self) -> None:
+
+    def __init__(self):
         self.processes = {}
 
-    def register_process(self, array, flavor, label, description, **kwargs):
-        if flavor == "cf":
-            self._register_columnflow_array(array, **kwargs)
-        elif flavor == "torch":
-            self._register_pt_array(array=array, label=label, description=description, **kwargs)
+    @staticmethod
+    def get_flavor(path):
+        flavor = path.split(".")[-1]
+        return flavor
+
+    def load_process(self, path, label, description, **kwargs):
+        flavor = self.get_flavor(path)
+
+        if flavor == "parquet":
+            events = self._register_columnflow_array(path, label, description)
+            return events
+        elif flavor == "pt":
+            events = self._register_pt_array(path, label, description)
+            return events
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 
-
-    def get_process(self, label):
-        pass
-
-    def _register_pt_array(self, array, label, description):
-        data = array
-        dy_indices = [] # collect all dy indices
+    def _register_pt_array(self, path, label, description):
+        data = torch.load(path, map_location=torch.device("cpu"))
+        dy_indices = []  # collect all dy indices
         # dy_dict = {} # new dict to store all dy data together
         for dataset in ["training", "validation", "test"]:
             dy_indices = [k[1] for k in data[0][dataset].keys() if k[0] == "dy"]
-            dicts = [(data[0][dataset][('dy', i)]) for i in dy_indices]
+            dicts = [(data[0][dataset][("dy", i)]) for i in dy_indices]
 
-        # TODO: code is error-prone as new columns added to the NN output will not be adopted immediately
+            # TODO: code is error-prone as new columns added to the NN output will not be adopted immediately
             events_dy = {
                 "scores": torch.cat([d["scores"] for d in dicts]),
                 "event_weight": torch.cat([d["event_weight"] for d in dicts]),
-                "normalization_weights": torch.cat([d["normalization_weights"] for d in dicts]),
+                "normalization_weights": torch.cat(
+                    [d["normalization_weights"] for d in dicts]
+                ),
                 "event_id": torch.cat([d["event_id"] for d in dicts]),
             }
 
@@ -49,21 +70,18 @@ class ProcessAgregator:
             "tt_dl": data[0][dataset][("tt", 1200)],
             "tt_fh": data[0][dataset][("tt", 1300)],
             "tt_sl": data[0][dataset][("tt", 1100)],
-            "hh": data[0][dataset][("hh", 21101)],
-            "dy": events_dy
+            "hh_kl1kt1": data[0][dataset][("hh", 21101)],
+            "dy": events_dy,
         }
+        return Process(
+            events=data,
+            label=label,
+            description=description,
+            flavor="torch_tensor"
+        )
 
-        for name, events in data.items():
-            _process_type = name.split("_")[0]
-            process = Process(
-                events = data[name],
-                subprocess = name,
-                label = label,
-                process_type = _process_type
-            )
-            self.processes[name] = process
-
-    def _register_columnflow_array(self, data, **kwargs):
+    def _register_columnflow_array(self, path, label, description):
+        data = ak.from_parquet(path)
         filter_default = data.run3_dnn_moe_hh > 0
         data = data[filter_default]
 
@@ -80,109 +98,104 @@ class ProcessAgregator:
 
         elif 21101 in unique_process_id:
             events["hh"] = data[data.process_id == 21101]
-            label = "hh"
+            label = "hh_kl1kt1"
         else:
             label = "dy"
             events["dy"] = data
-        from IPython import embed; embed(header="MAYBE LAST TODO: fix how the different processes are concatenated! Line 88 | File: structures.py")
-        for name , _events in events.items():
-            process = Process(
-                events = _events,
-                subprocess = name,
-                label = label,
-                process_type = name.split("_")[0]
-            )
-            self.processes[name] = process
-
-    def get_process_name_from_id(id):
-        # TODO use global id to name matching
-        labels = {
-            1300 : "events_tt_fh",
-            1200 : "events_tt_dl",
-            1100 : "events_tt_sl",
-            21101 : "events_hh",
-        }
-        return labels.get(id, "events_dy")
-
-
-
-
+        return Process(
+            events=events,
+            label=label,
+            description=description,
+            flavor="ak_array"
+        )
 
     def get_flats_binedges(self, dataset, n_bins=10):
         lower_border_flats = -1e2
         data = self.events[0][dataset]
-        bin_edges = flats_binning(data[("hh", 21101)]["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border_flats)[2]
+        bin_edges = flats_binning(
+            data[("hh", 21101)]["scores"][:, 0],
+            bin_num=n_bins,
+            hist_edge_l=lower_border_flats,
+        )[2]
         bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
         # check if two bin edges are the same
         for i in range(len(bin_edges)):
             for j in range(len(bin_edges)):
                 if (i != j) & (bin_edges[i] == bin_edges[j]):
-                    print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
+                    print(
+                        "\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m"
+                    )
         # important: map hist edges to bin edges from flat-s binning
         lower_border = bin_edges[0]
         upper_border = bin_edges[-1]
         return lower_border, upper_border, bin_edges, bin_centers
 
 
-
-
 @dataclass
 class Process:
     """
     Class to store the datasets to process, together with its labels."""
+
     events: object
-    subprocess: str
     label: str
-    process_type: str
-
-
+    description: str
+    flavor: str
 
 
 @dataclass
 class HistFab:
     """
     Class to store histogram configurations and produce hists."""
+
     name: str
     event_keys: list[str]
     color: str
     label: str
+    flavor: str
 
     def get_hist_config(self):
         return {
             "name": self.name,
             "color": self.color,
             "label": self.label,
-            "type": self.type
+            "type": self.type,
         }
 
     def create_hist(self, n_bins, lower_border, upper_border):
         """version without flat-s binning."""
         return Hist(
             hist.axis.Regular(
-                n_bins, lower_border, upper_border,
+                n_bins,
+                lower_border,
+                upper_border,
                 name=self.name,
                 label=self.label,
                 underflow=True,
-                overflow=True
+                overflow=True,
             ),
-            storage=hist.storage.Weight()
+            storage=hist.storage.Weight(),
         )
+
     def create_hist_flats(self, bin_edges):
         """version with flat-s binning."""
         return Hist(
-            hist.axis.Variable(
-                bin_edges,
-                name=self.name,
-                label=self.label,
-                flow=True),
-            storage=hist.storage.Weight()
+            hist.axis.Variable(bin_edges, name=self.name, label=self.label, flow=True),
+            storage=hist.storage.Weight(),
         )
-    def fill_hist(self, h, func, values, weights):
-        h.fill(
-            func(values),
-            weight =weights
-        )
+
+    def fill_hist(self, h, func, events):
+        if self.flavor == "torch_tensor":
+            h.fill(
+                func(events.events[key]["scores"].numpy()[:, 0]),
+                weight=events.events[key]["event_weight"].numpy() * events.events[key]["normalization_weights"].numpy()
+            )
+        if flavor == "ak_array":
+            h.fill(
+                func()
+            )
+
         return hist
+
     def reset_hist(self, *hists):
         for h in hists:
             h.reset()

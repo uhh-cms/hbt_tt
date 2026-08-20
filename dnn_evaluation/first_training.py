@@ -57,7 +57,11 @@ data_dnn_outputs = [
     # process_loader.load_process(path_dnn+"/test_dl2sl2.pt", label="112", description="dl and sl W decay mode oversampled: (1,2,2)"),
     # process_loader.load_process(path_dnn+"/test_dl1sl2.pt", label="121", description="sl W decay mode oversampled: (1,2,1)"),
       # sanity check: old DNNS
-    process_loader.load_process(path_old_dnn+"/tt_22pre_v14.parquet", label="input_file",description="")
+    process_loader.load_process([path_old_dnn+"/tt_22pre_v14.parquet",
+                                path_old_dnn+"/hh_22pre_v14.parquet",
+                                path_old_dnn+"/dy_22pre_v14.parquet"
+                                ],
+                                 label="input_file", description="original input file")
 ]
 print(colored ("data loaded, starting analysis now.", "yellow"))
 for d in data_dnn_outputs:
@@ -67,7 +71,6 @@ for d in data_dnn_outputs:
         # access all events
         # split the tt bg data in three processes
         # events_dict = d.get_events(dataset)
-        from IPython import embed; embed(header="MESSAGE Line 70 | File: first_training.py")
         hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=d.flavor),
                  HistFab("sl_hist", ["tt_sl"], 'green', "tt: sl events", flavor=d.flavor),
                  HistFab("dl_hist", ["tt_dl"], 'blue', "tt: dl events", flavor=d.flavor),
@@ -81,16 +84,13 @@ for d in data_dnn_outputs:
         # lower_border, upper_border, bin_edges, bin_centers = d.get_flats_binedges(dataset, n_bins=10)
         # x = bin_edges
         # x_bin_centers = (x[:-1] + x[1:]) / 2
-
         histograms = {}
         for h in hists:
             histogram = h.create_hist(n_bins, lower_border, upper_border)
-            for key in h.event_keys:
-                h.fill_hist(
-                    histogram,
-                    func,
-                    d
-                    )
+            h.fill_hist(
+                histogram,
+                func,
+                d)
             histograms[h.name] = histogram
 
         sig_all, error_sig_all = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
@@ -100,7 +100,7 @@ for d in data_dnn_outputs:
         all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
         all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
         all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
-        scaling_factor = ((add_flow_bin(histograms["hh_hist"]).sum())/ (add_flow_bin(histograms["all_tt_hist"]).sum() + add_flow_bin(histograms["dy_hist"]).sum()))**(-1)
+        scaling_factor = ((add_flow_bin(histograms["hh_hist"]).sum()+eps)/ (add_flow_bin(histograms["all_tt_hist"]).sum() + add_flow_bin(histograms["dy_hist"]).sum())+eps)**(-1)
 
         x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
         x = (x[:-1] + x[1:]) / 2  # bin centers

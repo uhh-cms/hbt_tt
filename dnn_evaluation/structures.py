@@ -35,14 +35,17 @@ class ProcessLoader:
         flavor = path.split(".")[-1]
         return flavor
 
-    def load_process(self, path, label, description, **kwargs):
-        flavor = self.get_flavor(path)
+    def load_process(self, path, label, description):
+        # if input is only one str, turn it into array
+        if isinstance(path, (str, Path)):
+            path = [path]
+        flavor = self.get_flavor(path[0])
 
         if flavor == "parquet":
             events = self._register_columnflow_array(path, label, description)
             return events
         elif flavor == "pt":
-            events = self._register_pt_array(path, label, description)
+            events = self._register_pt_array(path[0], label, description)
             return events
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
@@ -81,27 +84,27 @@ class ProcessLoader:
         )
 
     def _register_columnflow_array(self, path, label, description):
-        data = ak.from_parquet(path)
-        filter_default = data.run3_dnn_moe_hh > 0
-        data = data[filter_default]
-
-        # default plotting is in logit space; otherwise change func to identity
-        # convert_to_logit = lambda x: func(x.run3_dnn_moe_hh)
-
-        unique_process_id = list(sorted(np.unique(data.process_id)))
         events = {}
-        if 1100 in unique_process_id:
-            label = "tt"
-            events["tt_dl"] = data[data.process_id == 1200]
-            events["tt_fh"] = data[data.process_id == 1300]
-            events["tt_sl"] = data[data.process_id == 1100]
+        for p in path:
+            data = ak.from_parquet(p)
+            filter_default = data.run3_dnn_moe_hh > 0
+            data = data[filter_default]
+            # default plotting is in logit space; otherwise change func to identity
+            # convert_to_logit = lambda x: func(x.run3_dnn_moe_hh)
 
-        elif 21101 in unique_process_id:
-            events["hh"] = data[data.process_id == 21101]
-            label = "hh_kl1kt1"
-        else:
-            label = "dy"
-            events["dy"] = data
+            unique_process_id = list(sorted(np.unique(data.process_id)))
+            if 1100 in unique_process_id:
+                tag = "tt"
+                events["tt_dl"] = data[data.process_id == 1200]
+                events["tt_fh"] = data[data.process_id == 1300]
+                events["tt_sl"] = data[data.process_id == 1100]
+
+            elif 21101 in unique_process_id:
+                events["hh"] = data[data.process_id == 21101]
+                tag = "hh_kl1kt1"
+            else:
+                tag = "dy"
+                events["dy"] = data
         return Process(
             events=events,
             label=label,
@@ -185,15 +188,24 @@ class HistFab:
 
     def fill_hist(self, h, func, events):
         if self.flavor == "torch_tensor":
-            h.fill(
-                func(events.events[key]["scores"].numpy()[:, 0]),
-                weight=events.events[key]["event_weight"].numpy() * events.events[key]["normalization_weights"].numpy()
-            )
-        if flavor == "ak_array":
-            h.fill(
-                func()
-            )
-
+            for key in self.event_keys:
+                h.fill(
+                    func(events.events[key]["scores"].numpy()[:, 0]),
+                    weight=events.events[key]["event_weight"].numpy() * events.events[key]["normalization_weights"].numpy()
+                )
+        if self.flavor == "ak_array":
+            for key in self.event_keys:
+                if func == "logit":
+                    convert_to_logit = lambda x: func(x.run3_dnn_moe_hh)
+                    h.fill(
+                        convert_to_logit(events.events[key]),
+                        weight=events.events[key[0]].event_weight
+                    )
+                if func == "identity":
+                    h.fill(
+                        events.events[key].run3_dnn_moe_hh,
+                        weight=events.events[key[0]].event_weight
+                    )
         return hist
 
     def reset_hist(self, *hists):

@@ -33,8 +33,8 @@ np.seterr(invalid="raise")
 
 # my oversampling dl DNNs
 events_reference_0 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu'))
-events_reference_a = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_d.pt", map_location=torch.device('cpu'))
-events_reference_b = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_e.pt", map_location=torch.device('cpu'))
+events_reference_a = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/alleras_tt_111_a.pt", map_location=torch.device('cpu'))
+events_reference_b = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_f.pt", map_location=torch.device('cpu'))
 events_reference_c = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_f.pt", map_location=torch.device('cpu'))
 events_train_dl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_112.pt", map_location=torch.device('cpu')) # old: test_dl2
 events_train_dl4 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl4.pt", map_location=torch.device('cpu'))
@@ -42,7 +42,6 @@ events_train_dl6 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl
 # my oversampling sl DNNs
 events_train_dl2sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl2sl2.pt", map_location=torch.device('cpu'))
 events_train_dl1sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test_dl1sl2.pt", map_location=torch.device('cpu'))
-
 # W decay mode
 # sl_mask = events_tt_train.process_id == 1100
 # dl_mask = events_tt_train.process_id == 1200
@@ -50,17 +49,17 @@ events_train_dl1sl2 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/test
 # events_train = events_train[events_train.run3_dnn_moe_hh > 0]
 for events, label1, label2 in zip([events_reference_0, events_reference_a, events_reference_b, events_reference_c, events_train_dl2, events_train_dl4, events_train_dl6, events_train_dl2sl2, events_train_dl1sl2],
                                   ["equal sampling of W decay modes: (1,1,1); cosine-shaped LR",
-                                   r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$",
-                                   r"equal sampling of W decay modes: (1,1,1); constant LR: $10^{-4}$",
+                                   r"22 + 23 eras; equal sampling of W decay modes: (1,1,1); constant LR: $10^{-3}$",
+                                   r"...",
                                    r"equal sampling of W decay modes: (1,1,1); step-wise LR: $10^{-3}-10^{-5}$",
                                     "dl W decay mode oversampled: (1,1,2)",
                                     "dl W decay mode oversampled: (1,1,4)",
                                     "dl W decay mode oversampled: (1,1,6)",
                                     "dl and sl W decay mode oversampled: (1,2,2)",
                                     "sl W decay mode oversampled: (1,2,1)"],
-                                    ["111_0", "111_d", "111_e", "111_g", "112", "114", "116", "122", "121"]):
+                                    ["111_0", "111_alleras_largelr", "placeholder", "111_g", "112", "114", "116", "122", "121"]):
     print(f"Processing label {label2}")
-    for dataset in ["training", "validation", "test"]:
+    for dataset in events[0].keys():
         print("processing dataset: ", dataset)
         # split the tt bg data in three processes
         events_tt_dl = events[0][dataset][('tt', 1200)]
@@ -78,33 +77,33 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
             "event_id": torch.cat([d["event_id"] for d in dicts]),
         }
         # get bin edges for flat s binning
-        # bin_edges = flats_binning(events_hh["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
-        # bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+        bin_edges = flats_binning(events_hh["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border)[2]
+        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
         # check if two bin edges are the same
-        # for i in range(len(bin_edges)):
-        #     for j in range(len(bin_edges)):
-        #         if (i != j) & (bin_edges[i] == bin_edges[j]):
-        #             print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
+        for i in range(len(bin_edges)):
+            for j in range(len(bin_edges)):
+                if (i != j) & (bin_edges[i] == bin_edges[j]):
+                    print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
         # important: map hist edges to bin edges from flat-s binning
-        # lower_border = bin_edges[0]
-        # upper_border = bin_edges[-1]
+        lower_border = bin_edges[0]
+        upper_border = bin_edges[-1]
         # initialize hists with flat s binning edges
         # ---
         # flat-s binning:
-        # dl_hist = Hist(hist.axis.Variable(bin_edges, name="dl_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # fh_hist = Hist(hist.axis.Variable(bin_edges, name="fh_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # sl_hist = Hist(hist.axis.Variable(bin_edges, name="sl_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # dy_hist = Hist(hist.axis.Variable(bin_edges, name="dy_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # hh_hist = Hist(hist.axis.Variable(bin_edges, name="hh_hist", label=r"", flow=True), storage=hist.storage.Weight())
-        # all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="all_tt_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        dl_hist = Hist(hist.axis.Variable(bin_edges, name="dl_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        fh_hist = Hist(hist.axis.Variable(bin_edges, name="fh_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        sl_hist = Hist(hist.axis.Variable(bin_edges, name="sl_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        dy_hist = Hist(hist.axis.Variable(bin_edges, name="dy_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        hh_hist = Hist(hist.axis.Variable(bin_edges, name="hh_hist", label=r"", flow=True), storage=hist.storage.Weight())
+        all_tt_hist = Hist(hist.axis.Variable(bin_edges, name="all_tt_hist", label=r"", flow=True), storage=hist.storage.Weight())
         # ---
         # without flat-s:
-        dl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        fh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="fh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        sl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="sl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        dy_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dy_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        hh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="hh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
-        all_tt_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="all_tt_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # dl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # fh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="fh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # sl_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="sl_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # dy_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="dy_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # hh_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="hh_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
+        # all_tt_hist = Hist(hist.axis.Regular(n_bins, -14, 11, name="all_tt_hist", label=r"", underflow=True, overflow=True), storage=hist.storage.Weight())
         # fill
         dl_hist.fill(func(events_tt_dl["scores"].numpy()[:, 0]), weight =events_tt_dl["event_weight"].numpy()* events_tt_dl["normalization_weights"].numpy())
         fh_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
@@ -114,6 +113,8 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
         all_tt_hist.fill(func(events_tt_dl["scores"].numpy()[:, 0]), weight =events_tt_dl["event_weight"].numpy()* events_tt_dl["normalization_weights"].numpy())
         all_tt_hist.fill(func(events_tt_fh["scores"].numpy()[:, 0]), weight =events_tt_fh["event_weight"].numpy()* events_tt_fh["normalization_weights"].numpy())
         all_tt_hist.fill(func(events_tt_sl["scores"].numpy()[:, 0]), weight =events_tt_sl["event_weight"].numpy()* events_tt_sl["normalization_weights"].numpy())
+
+
         sig_all, error_sig_all = asimov_significance(hh_hist, dy_hist, fh_hist, dl_hist, sl_hist, error_type="poisson_weighted")
         sig_dl, error_sig_dl = asimov_significance(hh_hist, dl_hist, error_type="poisson_weighted")
         sig_sl, error_sig_sl = asimov_significance(hh_hist, sl_hist, error_type="poisson_weighted")
@@ -122,18 +123,27 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
         all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
         all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
         scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
+        print("HH total:", add_flow_bin(hh_hist).sum())
+        print("TT total:", add_flow_bin(all_tt_hist).sum())
+        print("DY total:", add_flow_bin(dy_hist).sum())
+
+        print("HH bins:", add_flow_bin(hh_hist))
+        print("B bins:", add_flow_bin(all_tt_hist) + add_flow_bin(dy_hist))
+
+        print("sig_all:", sig_all)
+        print("sig_tot:", np.sqrt(np.sum(sig_all**2)))
         # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
         # plot
         # ---
         # with flat-s
-        # x = bin_edges  # bin edges
-        # x_bin_centers = (x[:-1] + x[1:]) / 2  # bin centers
+        x = bin_edges  # bin edges
+        x_bin_centers = (x[:-1] + x[1:]) / 2  # bin centers
         # ---
         # without flat-s
-        lower_border = -14
-        upper_border = 11
-        x = np.linspace(-14, 11, n_bins + 1)  # bin edges
-        x = (x[:-1] + x[1:]) / 2  # bin centers
+        # lower_border = -14
+        # upper_border = 11
+        # x = np.linspace(-14, 11, n_bins + 1)  # bin edges
+        # x = (x[:-1] + x[1:]) / 2  # bin centers
         # ---
         x_lin_binedges = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
         x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
@@ -214,11 +224,11 @@ convert_to_logit = lambda x: func(x.run3_dnn_moe_hh)
 bin_edges = flats_binning(torch.from_numpy(ak.to_numpy(convert_to_logit(events_hh))), bin_num = n_bins, hist_edge_l=lower_border)[2]
 bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 # check if two bin edges are the same
-for i in range(len(bin_edges)):
-    for j in range(len(bin_edges)):
-        if (i != j) & (bin_edges[i] == bin_edges[j]):
-            print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
-# important: map hist edges to bin edges from flat-s binning
+# for i in range(len(bin_edges)):
+#     for j in range(len(bin_edges)):
+#         if (i != j) & (bin_edges[i] == bin_edges[j]):
+#             print("\033[93mError: Two bin edges are the same! Check bin edges and delete one of the doubles!\033[0m")
+
 lower_border = bin_edges[0]
 upper_border = bin_edges[-1]
 # initialize hists with flat s binning edges
@@ -240,6 +250,7 @@ all_tt_hist.fill(convert_to_logit(events_tt_dl), weight =events_tt_dl.event_weig
 all_tt_hist.fill(convert_to_logit(events_tt_fh), weight =events_tt_fh.event_weight)
 all_tt_hist.fill(convert_to_logit(events_tt_sl), weight =events_tt_sl.event_weight)
 
+
 sig_all, error_sig_all = asimov_significance(hh_hist, dy_hist, fh_hist, dl_hist, sl_hist, error_type="poisson_weighted")
 sig_dl, error_sig_dl = asimov_significance(hh_hist, dl_hist, error_type="poisson_weighted")
 sig_sl, error_sig_sl = asimov_significance(hh_hist, sl_hist, error_type="poisson_weighted")
@@ -249,6 +260,16 @@ all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
 all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
 all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
 scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
+
+print("HH total:", add_flow_bin(hh_hist).sum())
+print("TT total:", add_flow_bin(all_tt_hist).sum())
+print("DY total:", add_flow_bin(dy_hist).sum())
+
+print("HH bins:", add_flow_bin(hh_hist))
+print("B bins:", add_flow_bin(all_tt_hist) + add_flow_bin(dy_hist))
+
+print("sig_all:", sig_all)
+print("sig_tot:", np.sqrt(np.sum(sig_all**2)))
 # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
 # plot
 x = bin_edges  # bin edges

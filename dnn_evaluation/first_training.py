@@ -123,15 +123,6 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
         all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
         all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
         scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
-        print("HH total:", add_flow_bin(hh_hist).sum())
-        print("TT total:", add_flow_bin(all_tt_hist).sum())
-        print("DY total:", add_flow_bin(dy_hist).sum())
-
-        print("HH bins:", add_flow_bin(hh_hist))
-        print("B bins:", add_flow_bin(all_tt_hist) + add_flow_bin(dy_hist))
-
-        print("sig_all:", sig_all)
-        print("sig_tot:", np.sqrt(np.sum(sig_all**2)))
         # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
         # plot
         # ---
@@ -174,14 +165,14 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
         ax1.set_ylabel('Number of events', color="black")
         # lower x axis with bin edges
         ax1.set_xticks(x_lin_binedges)  # Set label locations.
-        ax1.set_xticklabels(x_lin_binedges.round(2), rotation=45)  # Set text labels.
+        ax1.set_xticklabels(bin_edges.round(2), rotation=45)  # Set text labels.
         ax1.set_xlabel('HH output node')
 
         # upper x axis with bin numbers
         ax1_upper = ax1.twiny()
         ax1_upper.set_xlim(ax1.get_xlim())
-        ax1_upper.set_xticks(x_lin_bincenters)
-        ax1_upper.set_xticklabels(range(1,len(x_lin_binedges)), rotation=0)  # Set text labels.
+        ax1_upper.set_xticks(x_lin_binedges)
+        ax1_upper.set_xticklabels(range(0,len(bin_edges)), rotation=0)  # Set text labels.
         ax1_upper.set_xlabel('bin number')
 
         yaxis_sig.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.45, 1))
@@ -261,15 +252,6 @@ all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
 all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
 scaling_factor = ((add_flow_bin(hh_hist).sum())/ (add_flow_bin(all_tt_hist).sum() + add_flow_bin(dy_hist).sum()))**(-1)
 
-print("HH total:", add_flow_bin(hh_hist).sum())
-print("TT total:", add_flow_bin(all_tt_hist).sum())
-print("DY total:", add_flow_bin(dy_hist).sum())
-
-print("HH bins:", add_flow_bin(hh_hist))
-print("B bins:", add_flow_bin(all_tt_hist) + add_flow_bin(dy_hist))
-
-print("sig_all:", sig_all)
-print("sig_tot:", np.sqrt(np.sum(sig_all**2)))
 # scaling_factor = ((hh_hist.values().sum())/ (all_tt_hist.values().sum() ))**(-1)
 # plot
 x = bin_edges  # bin edges
@@ -294,6 +276,7 @@ for sig, error, sig_tot, label, color in zip(all_significances,
                                         all_sig_tot,
                                         [r"$Z_A$: tt+dy", r"$Z_A$: tt dl", r"$Z_A$: tt sl", r"$Z_A$: tt fh"],
                                         colors):
+    from IPython import embed; embed(header="MESSAGE Line 279 | File: first_training.py")
     yaxis_sig.errorbar(x_lin_bincenters, sig, yerr=error, label=label+f"; total: {round(sig_tot, 2)}", color=color, alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
 yaxis_sig.tick_params(axis='y', labelcolor=label_color)
 lines1, labels1 = ax1.get_legend_handles_labels()
@@ -310,7 +293,7 @@ ax1.set_xlabel('HH output node')
 # upper x axis with bin numbers
 ax1_upper = ax1.twiny()
 ax1_upper.set_xlim(ax1.get_xlim())
-ax1_upper.set_xticks(x_lin_bincenters)
+ax1_upper.set_xticks(x_lin_binedges)
 ax1_upper.set_xticklabels(range(1,len(x_lin_binedges)), rotation=0)  # Set text labels.
 ax1_upper.set_xlabel('bin number')
 

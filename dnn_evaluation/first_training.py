@@ -30,9 +30,8 @@ colors = [
 
 # to get better error messages:
 np.seterr(invalid="raise")
-
 # my oversampling dl DNNs
-events_reference_0 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/referenz_dl1.pt", map_location=torch.device('cpu'))
+events_reference_0 = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/22_23_lr_linear_a_test.pt", map_location=torch.device('cpu'))
 events_reference_a = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/alleras_tt_111_a.pt", map_location=torch.device('cpu'))
 events_reference_b = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_f.pt", map_location=torch.device('cpu'))
 events_reference_c = torch.load("/data/dust/user/hergesk/HH_DNN/evaluation/august_tt_111_f.pt", map_location=torch.device('cpu'))
@@ -61,6 +60,7 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
     print(f"Processing label {label2}")
     for dataset in events[0].keys():
         print("processing dataset: ", dataset)
+        from IPython import embed; embed()
         # split the tt bg data in three processes
         events_tt_dl = events[0][dataset][('tt', 1200)]
         events_tt_fh = events[0][dataset][('tt', 1300)]
@@ -144,7 +144,7 @@ for events, label1, label2 in zip([events_reference_0, events_reference_a, event
         ax1.stairs(add_flow_bin(sl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='green', label=r"tt: sl decay")
         ax1.stairs(add_flow_bin(dl_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='blue', label=r"tt: dl decay")
         ax1.stairs(add_flow_bin(fh_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:brown', label=r"tt: fh decay")
-        ax1.stairs(add_flow_bin(dy_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:orange', label=r"dy")
+        ax1.stairs(add_flow_bin(dy_hist), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='tab:pink', label=r"dy")
         ax1.stairs(add_flow_bin(hh_hist)*scaling_factor, edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor="black", label=fr"signal x {round(scaling_factor)}")
 
         ax1.tick_params(axis='y', labelcolor='black')

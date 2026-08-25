@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from modules import flats_binning
 from pathlib import Path
 import awkward as ak
+from termcolor import colored
 
 from modules import logit
-
+from IPython import embed
 
 class ProcessLoader:
     """
@@ -53,26 +54,31 @@ class ProcessLoader:
         data = torch.load(path, map_location=torch.device("cpu"))
         dy_indices = []  # collect all dy indices
         # dy_dict = {} # new dict to store all dy data together
-        for dataset in ["training", "validation", "test"]:
-            dy_indices = [k[1] for k in data[0][dataset].keys() if k[0] == "dy"]
-            dicts = [(data[0][dataset][("dy", i)]) for i in dy_indices]
-
-            # TODO: code is error-prone as new columns added to the NN output will not be adopted immediately
-            events_dy = {
-                "scores": torch.cat([d["scores"] for d in dicts]),
-                "event_weight": torch.cat([d["event_weight"] for d in dicts]),
-                "normalization_weights": torch.cat(
-                    [d["normalization_weights"] for d in dicts]
-                ),
-                "event_id": torch.cat([d["event_id"] for d in dicts]),
-            }
+        dy_indices = [k[1] for k in data[0].keys() if k[0] == "dy"]
+        dicts = [(data[0][("dy", i)]) for i in dy_indices]
+        # TODO: code is error-prone as new columns added to the NN output will not be adopted immediately
+        events_dy = {
+            "scores": torch.cat([d["scores"] for d in dicts]),
+            # skip event_weight as they're both in the product_of_weights column now
+            # "event_weight": torch.cat([d["event_weight"] for d in dicts]),
+            "normalization_weights": torch.cat(
+                            [d["normalization_weights"] for d in dicts]
+            ),
+            "product_of_weights": torch.cat(
+                [d["product_of_weights"] for d in dicts]
+            ),
+            "event_id": torch.cat([d["event_id"] for d in dicts]),
+            "pair_type": torch.cat([d["pair_type"] for d in dicts]),
+            "bjet_mask": torch.cat([d["bjet_mask"] for d in dicts]),
+            "di_bjet": torch.cat([d["di_bjet"] for d in dicts])
+        }
 
         # store all categories in a dict:
         data = {
-            "tt_dl": data[0][dataset][("tt", 1200)],
-            "tt_fh": data[0][dataset][("tt", 1300)],
-            "tt_sl": data[0][dataset][("tt", 1100)],
-            "hh": data[0][dataset][("hh", 21101)],
+            "tt_dl": data[0][("tt", 1200)],
+            "tt_fh": data[0][("tt", 1300)],
+            "tt_sl": data[0][("tt", 1100)],
+            "hh": data[0][("hh", 21101)],
             "dy": events_dy,
         }
         return Process(
@@ -112,6 +118,7 @@ class ProcessLoader:
         )
 
     def get_flats_binedges(self, dataset, n_bins=10):
+        "work in progress, this fct is not used yet."
         lower_border_flats = -1e2
         data = self.events[0][dataset]
         bin_edges = flats_binning(
@@ -131,6 +138,9 @@ class ProcessLoader:
         lower_border = bin_edges[0]
         upper_border = bin_edges[-1]
         return lower_border, upper_border, bin_edges, bin_centers
+    
+
+            
 
 
 @dataclass
@@ -142,6 +152,42 @@ class Process:
     label: str
     description: str
     flavor: str
+    
+    def split_into_categories(self, cat):
+        """splits data in the 3 categories:
+        - etau
+        - mutau
+        - tautau
+        and adds a btag cut (res1b + res2b together).
+        """
+        for key, event in self.events.items():
+            # keys are masks, event are "hh", "tt_dl" etc  
+            # print(key)
+            # for field, value in event.items():
+            #     print(" ", field, value.shape)
+                      
+            bmask1 = event["bjet_mask"]
+            bmask2 = event["di_bjet"]
+            btag_mask = bmask1 | bmask2
+            
+            for field, value in event.items():
+                if field not in ("bjet_mask", "di_bjet"):
+                    event[field] = value[btag_mask]
+        # now filter via pairtype: etau, mutau, tautau category
+        if cat == "mutau":
+            filter_index = 0           
+        elif cat == "etau":
+            filter_index = 1
+        elif cat == "tautau":
+            filter_index = 2
+        else:
+            print(colored("Warning: category to split doesn't match the possible options. Please use 'etau', 'mutau' or 'tautau'.", "red"))
+        
+        pairtype_mask = event["pair_type"] == filter_index
+        for field, value in event.items():
+                if field not in ("bjet_mask", "di_bjet"):
+                    event[field] = value[pairtype_mask]
+        return event
 
 
 @dataclass
@@ -191,7 +237,7 @@ class HistFab:
             for key in self.event_keys:
                 h.fill(
                     func(events.events[key]["scores"].numpy()[:, 0]),
-                    weight=events.events[key]["event_weight"].numpy() * events.events[key]["normalization_weights"].numpy()
+                    weight=events.events[key]["product_of_weights"].numpy() * events.events[key]["normalization_weights"].numpy()
                 )
             if func == logit:
                 print(colored("Warning: logit plots first need to be implemented in HistFab class", red))

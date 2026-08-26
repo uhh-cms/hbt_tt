@@ -160,20 +160,6 @@ class Process:
         - tautau
         and adds a btag cut (res1b + res2b together).
         """
-        for key, event in self.events.items():
-            # keys are masks, event are "hh", "tt_dl" etc  
-            # print(key)
-            # for field, value in event.items():
-            #     print(" ", field, value.shape)
-                      
-            bmask1 = event["bjet_mask"]
-            bmask2 = event["di_bjet"]
-            btag_mask = bmask1 | bmask2
-            
-            for field, value in event.items():
-                if field not in ("bjet_mask", "di_bjet"):
-                    event[field] = value[btag_mask]
-        # now filter via pairtype: etau, mutau, tautau category
         if cat == "mutau":
             filter_index = 0           
         elif cat == "etau":
@@ -182,12 +168,31 @@ class Process:
             filter_index = 2
         else:
             print(colored("Warning: category to split doesn't match the possible options. Please use 'etau', 'mutau' or 'tautau'.", "red"))
+        ev = {
+            key: event.copy()
+            for key, event in self.events.items()
+        }
         
-        pairtype_mask = event["pair_type"] == filter_index
-        for field, value in event.items():
+        for key, event in ev.items():
+            # keys are masks, event are "hh", "tt_dl" etc  
+            
+            # define masks (bmask2 already includes bmask1)
+            bmask1 = event["bjet_mask"]
+            bmask2 = event["di_bjet"]
+
+            pairtype_mask = event["pair_type"] == filter_index
+            mask = bmask2 & pairtype_mask
+
+            for field, value in event.items():
                 if field not in ("bjet_mask", "di_bjet"):
-                    event[field] = value[pairtype_mask]
-        return event
+                    event[field] = value[mask]
+
+        return Process(
+                    events=ev,
+                    label=self.label,
+                    description=self.description,
+                    flavor=self.flavor
+                )
 
 
 @dataclass

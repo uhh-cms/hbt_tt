@@ -22,7 +22,7 @@ lower_border_flats = -1e2# set to 0 for lin scale
 # upper_border = 12# set to 1 for lin scale
 func = identity
 
-label_color = "#7E3A72"# "#BE185D" ##'#4b2e83'
+label_color = "#BE4242"#"#7E3A72"# "#BE185D" ##'#4b2e83'
 "#008C95"
 
 colors = [
@@ -31,9 +31,6 @@ colors = [
 "#9B5DE5",  # lavender violet
 "#5A189A",  # dark violet
 ]
-
-# to get better error messages:
-np.seterr(invalid="raise")
 
 path_dnn = "/data/dust/user/hergesk/HH_DNN/evaluation"
 path_old_dnn = "/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24"
@@ -54,7 +51,42 @@ data_dnn_outputs = [
 print(colored ("data loaded, starting analysis now.", "yellow"))
 for output in data_dnn_outputs:
     print(f"Processing label {output.label}")
-    # TODO implement an etau, mutau, tautau split in a manner such that the structures.py classes are still applicable
+    ###
+    # first calculate total sig (before splitting events in categories)
+    hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=output.flavor),
+        HistFab("sl_hist", ["tt_sl"], "#009E73", "tt: sl events", flavor=output.flavor),
+        HistFab("dl_hist", ["tt_dl"], "#C46A2F", "tt: dl events", flavor=output.flavor),# or
+        HistFab("fh_hist", ["tt_fh"], 'tab:pink', "tt: fh events", flavor=output.flavor),
+        HistFab("dy_hist", ["dy"], "#8D99AE", "dy: all events", flavor=output.flavor),# '#3B5B92'
+        HistFab("hh_hist", ["hh"], "black", "hh: all events", flavor=output.flavor)
+    ]
+    # get bin edges for flat s binning
+    if output.flavor == "torch_tensor":
+        bin_edges = flats_binning(output.events["hh"]["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border_flats)[2]
+    if output.flavor == "ak_array":
+        bin_edges = flats_binning(torch.from_numpy(ak.to_numpy(logit(output.events["hh"].run3_dnn_moe_hh))), bin_num = n_bins, hist_edge_l=lower_border_flats)[2]
+    bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    lower_border = bin_edges[0]
+    upper_border = bin_edges[-1]
+    histograms = {}
+    for h in hists:
+        histogram = h.create_hist_flats(bin_edges)
+        h.fill_hist(
+            histogram,
+            func,
+            output)
+        histograms[h.name] = histogram
+    tot_sig_all_binned, tot_error_sig_all_binned = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
+    tot_sig_all = np.sqrt(np.sum(np.square(tot_sig_all_binned)))
+    # tot_sig_dl, tot_error_sig_dl = asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")
+    # tot_sig_sl, tot_error_sig_sl = asimov_significance(histograms["hh_hist"], histograms["sl_hist"], error_type="poisson_weighted")
+    # tot_sig_fh, tot_error_sig_fh = asimov_significance(histograms["hh_hist"], histograms["fh_hist"], error_type="poisson_weighted")
+    for h in histograms:
+        histograms[h].reset()
+    # TODO calculate total significance, for all categories
+    
+    ###
+    # now split in categories and produce the subplots
     legend_handles = []
     legend_labels = []
     split_events = [
@@ -70,9 +102,9 @@ for output in data_dnn_outputs:
         
         hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=d.flavor),
                     HistFab("sl_hist", ["tt_sl"], "#009E73", "tt: sl events", flavor=d.flavor),
-                    HistFab("dl_hist", ["tt_dl"], "#0072B2", "tt: dl events", flavor=d.flavor),# or
-                    HistFab("fh_hist", ["tt_fh"], 'tab:brown', "tt: fh events", flavor=d.flavor),
-                    HistFab("dy_hist", ["dy"], "tab:orange", "dy: all events", flavor=d.flavor),# '#3B5B92'
+                    HistFab("dl_hist", ["tt_dl"], "#C46A2F", "tt: dl events", flavor=d.flavor),# or
+                    HistFab("fh_hist", ["tt_fh"], "#BB5186", "tt: fh events", flavor=d.flavor),
+                    HistFab("dy_hist", ["dy"], "#8D99AE", "dy: all events", flavor=d.flavor),# '#3B5B92'
                     HistFab("hh_hist", ["hh"], "black", "hh: all events", flavor=d.flavor)
         ]
         # get bin edges for flat s binning
@@ -125,7 +157,7 @@ for output in data_dnn_outputs:
         #                                         [r"$Z_A$: tt+dy", r"$Z_A$: tt dl", r"$Z_A$: tt sl", r"$Z_A$: tt fh"],
         #                                         colors):
         #     yaxis_sig.errorbar(x_lin_bincenters, sig, yerr=error, label=label+f"; total: {round(sig_tot, 2)}", color=color, alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
-        yaxis_sig.errorbar(x_lin_bincenters, sig_all, yerr=error_sig_all, label=fr"$Z_A$; total: {round(all_sig_tot[0], 2)}", color=label_color, alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
+        yaxis_sig.errorbar(x_lin_bincenters, sig_all, yerr=error_sig_all, label=fr"$Z_A$ (total: {round(tot_sig_all, 2)})", color="#BE4242", alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
         yaxis_sig.tick_params(axis='y', labelcolor=label_color)
         lines1, labels1 = ax.get_legend_handles_labels()
         lines2, labels2 = yaxis_sig.get_legend_handles_labels()
@@ -150,7 +182,7 @@ for output in data_dnn_outputs:
         # ax_upper.set_xticks(x_lin_bincenters)
         # ax_upper.set_xticklabels(range(1,len(x_lin_binedges)), rotation=0)  # Set text labels.
         # ax_upper.set_xlabel('bin number')
-        ax.set_title(small_title + ", res2b", fontsize=11, pad=10)
+        ax.set_title(small_title + fr", res1b ($Z_A$ = {round(all_sig_tot[0], 2)})", fontsize=11, pad=10)
         for h in histograms:
             histograms[h].reset()
         # yaxis_sig.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.38, 1))

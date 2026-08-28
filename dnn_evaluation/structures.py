@@ -179,9 +179,10 @@ class Process:
             # define masks (bmask2 already includes bmask1)
             bmask1 = event["bjet_mask"]
             bmask2 = event["di_bjet"]
+            btag_mask = bmask1 | bmask2
 
             pairtype_mask = event["pair_type"] == filter_index
-            mask = bmask2 & pairtype_mask
+            mask = btag_mask & pairtype_mask
 
             for field, value in event.items():
                 if field not in ("bjet_mask", "di_bjet"):

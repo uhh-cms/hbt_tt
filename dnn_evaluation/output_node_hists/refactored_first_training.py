@@ -63,7 +63,7 @@ for output in data_dnn_outputs:
     # first calculate total sig (before splitting events in categories)
     hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=output.flavor),
         HistFab("sl_hist", ["tt_sl"], "#009E73", "tt: sl events", flavor=output.flavor),
-        HistFab("dl_hist", ["tt_dl"], "#C46A2F", "tt: dl events", flavor=output.flavor),# or
+        HistFab("dl_hist", ["tt_dl"], "orange", "tt: dl events", flavor=output.flavor),# or
         HistFab("fh_hist", ["tt_fh"], 'tab:pink', "tt: fh events", flavor=output.flavor),
         HistFab("dy_hist", ["dy"], "#8D99AE", "dy: all events", flavor=output.flavor),# '#3B5B92'
         HistFab("hh_hist", ["hh"], "black", "hh: all events", flavor=output.flavor)
@@ -110,7 +110,7 @@ for output in data_dnn_outputs:
         
         hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=d.flavor),
                     HistFab("sl_hist", ["tt_sl"], "#009E73", "tt: sl events", flavor=d.flavor),
-                    HistFab("dl_hist", ["tt_dl"], "#C46A2F", "tt: dl events", flavor=d.flavor),# or
+                    HistFab("dl_hist", ["tt_dl"], "orange", "tt: dl events", flavor=d.flavor),# or
                     HistFab("fh_hist", ["tt_fh"], "#DF7DAE", "tt: fh events", flavor=d.flavor),
                     HistFab("dy_hist", ["dy"], "#8D99AE", "dy: all events", flavor=d.flavor),# '#3B5B92'
                     HistFab("hh_hist", ["hh"], "black", "hh: all events", flavor=d.flavor)

@@ -184,11 +184,37 @@ class Process:
             btag_mask = bmask1 | bmask2
 
             pairtype_mask = event["pair_type"] == filter_index
-            mask = btag_mask & pairtype_mask
+            mask =  btag_mask & pairtype_mask
 
             for field, value in event.items():
                 if field not in ("bjet_mask", "di_bjet"):
                     event[field] = value[mask]
+
+        return Process(
+                    events=ev,
+                    label=self.label,
+                    description=self.description,
+                    flavor=self.flavor
+                )
+    def add_btagcut(self):
+        """adds a btag cut (res1b + res2b together).
+        """
+        ev = {
+            key: event.copy()
+            for key, event in self.events.items()
+        }
+        
+        for key, event in ev.items():
+            # keys are masks, event are "hh", "tt_dl" etc  
+            
+            # define masks (bmask2 already includes bmask1)
+            bmask1 = event["bjet_mask"]
+            bmask2 = event["di_bjet"]
+            btag_mask = bmask1 | bmask2
+
+            for field, value in event.items():
+                if field not in ("bjet_mask", "di_bjet"):
+                    event[field] = value[btag_mask]
 
         return Process(
                     events=ev,
@@ -248,7 +274,7 @@ class HistFab:
                     weight=events.events[key]["product_of_weights"].numpy() * events.events[key]["normalization_weights"].numpy()
                 )
             if func == logit:
-                print(colored("Warning: logit plots first need to be implemented in HistFab class", red))
+                print(colored("Warning: logit plots first need to be implemented in HistFab class", "red"))
         if self.flavor == "ak_array":
             for key in self.event_keys:
                 h.fill(

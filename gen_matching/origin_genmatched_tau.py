@@ -5,6 +5,7 @@ import hist
 from hist import Hist
 import numpy as np
 import matplotlib.pyplot as plt
+from IPython import embed
 
 
 """This script analyses the mutau channel and matches mu, tau to gen W children.
@@ -30,40 +31,53 @@ func = logit
 # events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/20260504/tt_22pre_v14.parquet")
 events_tt = ak.from_parquet("/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24/tt_22pre_v14.parquet")
 events_tt = events_tt[events_tt.run3_dnn_moe_hh > 0]
-events_tt = events_tt[events_tt.channel_id == 2] # mutau channel
+events_tt_mutau = events_tt[events_tt.channel_id == 2] # mutau channel
+events_tt_etau = events_tt[events_tt.channel_id == 1] # etau channel
+events_tt_tautau = events_tt[events_tt.channel_id == 3] # tautau channel
+
+
 weights_2d = ak.zeros_like(events_tt.tau_genPartFlav)+events_tt.event_weight
 binned_matched = np.bincount(ak.to_numpy(ak.flatten(events_tt.tau_genPartFlav)), weights=ak.flatten(weights_2d))
 
-# # plot
-# x = np.arange(6)
-# labels = ["Unknown",
-#         "Prompt e",
-#         r"Prompt $\mu$",
-#         r"$\tau_e$",
-#         r"$\tau_\mu$",
-#         r"$\tau_h$"]
-# fig, ax = plt.subplots(figsize=(10, 6))
-# ax.bar(x, binned_matched, color='blueviolet', alpha=0.5, edgecolor='black')
-# plt.xlabel("origin")
-# plt.ylabel("Number of events")
-# plt.title(fr"Origin of gen matched taus in $\mu\tau$ channel (from tau_genPartFlav column)")
-# # plt.xticks(x, labels, rotation=45)
-# plt.yscale('linear')
-# plt.savefig(fr"analysis_mutau/origin_of_genmatched_tau_taugenpartflav_weighted", dpi=300, bbox_inches='tight')
-# plt.show()
-unknown_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 0)])
-e_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 1)])
-mu_counds = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 2)])
-tau_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 3)]) + ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 4)]) + ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 5)])
+# plot
+fig, axs = plt.subplots(1, 3, figsize=(16, 5), layout='constrained')
+x = np.arange(6)
+labels = ["Unknown",
+        "Prompt e",
+        r"Prompt $\mu$",
+        r"$\tau_e$",
+        r"$\tau_\mu$",
+        r"$\tau_h$"]
 
-origins = ["Unknown", r"e", r"$\mu$", r"$\tau$"]
-counts = [unknown_counts, e_counts, mu_counds, tau_counts]
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.bar(origins, counts, color='blueviolet', alpha=0.5, edgecolor='black')
+for ax, ev, small_title in zip(axs, [events_tt_etau, events_tt_mutau, events_tt_tautau], ["etau", "mutau", "tautau"]):
+    weights_2d = ak.zeros_like(ev.tau_genPartFlav)+ev.event_weight
+    binned_matched = np.bincount(ak.to_numpy(ak.flatten(ev.tau_genPartFlav)), weights=ak.flatten(weights_2d))
+    ax.bar(x, binned_matched, color='blueviolet', alpha=0.5, edgecolor='black')
+    ax.set_title(f"{small_title} channel", fontsize=12)
+    ax.set_xticks(x, labels, rotation=45)
 plt.xlabel("origin")
 plt.ylabel("Number of events")
-plt.title(r"Origin of gen matched taus in $\mu\tau$ channel (from tau_genPartFlav column)")
-# plt.xticks(x, labels, rotation=45)
+plt.suptitle(fr"Origin of gen matched taus", fontsize=14)
 plt.yscale('linear')
-plt.savefig("analysis_mutau/origin_of_genmatched_tau_taugenpartflav_weighted", dpi=300, bbox_inches='tight')
+plt.savefig(fr"origin_of_genmatched_tau_taugenpartflav_weighted", dpi=300, bbox_inches='tight')
 plt.show()
+
+
+
+
+# unknown_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 0)])
+# e_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 1)])
+# mu_counds = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 2)])
+# tau_counts = ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 3)]) + ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 4)]) + ak.sum(events_tt.event_weight[ak.flatten(events_tt.tau_genPartFlav == 5)])
+
+# origins = ["Unknown", r"e", r"$\mu$", r"$\tau$"]
+# counts = [unknown_counts, e_counts, mu_counds, tau_counts]
+# fig, ax = plt.subplots(figsize=(10, 6))
+# ax.bar(origins, counts, color='blueviolet', alpha=0.5, edgecolor='black')
+# plt.xlabel("origin")
+# plt.ylabel("Number of events")
+# plt.title(r"Origin of gen matched taus in $\mu\tau$ channel (from tau_genPartFlav column)")
+# # plt.xticks(x, labels, rotation=45)
+# plt.yscale('linear')
+# plt.savefig("analysis_mutau/origin_of_genmatched_tau_columnmasks_weighted", dpi=300, bbox_inches='tight')
+# plt.show()

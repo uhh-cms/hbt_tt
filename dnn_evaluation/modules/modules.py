@@ -93,7 +93,11 @@ def asimov_significance(s, *b, error_type="poisson_weighted", eps_s=1e-9, eps_b=
     eps_sig = 1e-9
     s_count = s.values()
     if np.any(s_count < 0):
-        print(colored("Warning: Negative signal counts encountered. Setting them to 0.", "red"))
+        neg_count_value = s_count[s_count < 0][0]
+        if abs(neg_count_value) < 1e-3:
+            print(colored(f"Negative signal counts encountered: {neg_count_value:.1e}. Setting them to 0.", "green"))
+        else:
+            print(colored(f"Warning: Negative signal counts encountered: {neg_count_value:.1e}. Setting them to 0.", "red"))
         s_count = np.where(s_count < 0, 0, s_count)
     s_error = np.sqrt(s_count+eps_s)
     # for background, negative weights can exist, which is why they are set to 0 for the significance calculation

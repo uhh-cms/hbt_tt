@@ -140,9 +140,9 @@ class ProcessLoader:
         lower_border = bin_edges[0]
         upper_border = bin_edges[-1]
         return lower_border, upper_border, bin_edges, bin_centers
-    
 
-            
+
+
 
 
 @dataclass
@@ -154,7 +154,7 @@ class Process:
     label: str
     description: str
     flavor: str
-    
+
     def split_into_categories(self, cat):
         """splits data in the 3 categories:
         - etau
@@ -163,7 +163,7 @@ class Process:
         and adds a btag cut (res1b + res2b together).
         """
         if cat == "mutau":
-            filter_index = 0           
+            filter_index = 0
         elif cat == "etau":
             filter_index = 1
         elif cat == "tautau":
@@ -174,10 +174,10 @@ class Process:
             key: event.copy()
             for key, event in self.events.items()
         }
-        
+
         for key, event in ev.items():
-            # keys are masks, event are "hh", "tt_dl" etc  
-            
+            # keys are masks, event are "hh", "tt_dl" etc
+
             # define masks (bmask2 already includes bmask1)
             bmask1 = event["bjet_mask"]
             bmask2 = event["di_bjet"]
@@ -203,10 +203,10 @@ class Process:
             key: event.copy()
             for key, event in self.events.items()
         }
-        
+
         for key, event in ev.items():
-            # keys are masks, event are "hh", "tt_dl" etc  
-            
+            # keys are masks, event are "hh", "tt_dl" etc
+
             # define masks (bmask2 already includes bmask1)
             bmask1 = event["bjet_mask"]
             bmask2 = event["di_bjet"]
@@ -214,6 +214,7 @@ class Process:
 
             for field, value in event.items():
                 if field not in ("bjet_mask", "di_bjet"):
+                    embed()
                     event[field] = value[btag_mask]
 
         return Process(

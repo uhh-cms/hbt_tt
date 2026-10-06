@@ -24,7 +24,7 @@ n_bins = 35
 eps = 1e-6 # set eps=0 for normal scale
 # plotting in logit space:
 lower_border = 0
-upper_border = 11
+upper_border = 13
 func = identity
 
 path_dnn = "/data/dust/user/hergesk/HH_DNN/evaluation"
@@ -74,7 +74,7 @@ for output in data_dnn_outputs:
     all_sigs_tt_per_bin[output.description] = {"per_bin":      tot_sig_tt_binned,
                                         "err_per_bin":  tot_error_sig_tt_binned,
                                         "total": tot_sig_tt}
-    
+
 x_lin_binedges = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
 x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
 fig, ax = plt.subplots(figsize=(9, 5))
@@ -83,9 +83,9 @@ fig.subplots_adjust(right=0.85)
 ### -----
 # plot all (tt+dy) sigs in one plot
 for key in all_sigs_per_bin.keys():
-    ax.errorbar(x_lin_bincenters, all_sigs_per_bin[key]["per_bin"] - all_sigs_per_bin["baseline"]["per_bin"], 
-                #yerr=all_sigs_per_bin[key]["err_per_bin"], 
-                label=key+fr"; total: {round(all_sigs_per_bin[key]['total'], 2)}", 
+    ax.errorbar(x_lin_bincenters, all_sigs_per_bin[key]["per_bin"] - all_sigs_per_bin["baseline"]["per_bin"],
+                #yerr=all_sigs_per_bin[key]["err_per_bin"],
+                label=key+fr"; total: {round(all_sigs_per_bin[key]['total'], 2)}",
                 alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
 
 ax.set_xlabel("DNN output node score")
@@ -103,9 +103,9 @@ plt.clf()
 fig, ax = plt.subplots(figsize=(9, 5))
 fig.subplots_adjust(right=0.85)
 for key in all_sigs_tt_per_bin.keys():
-    ax.errorbar(x_lin_bincenters, all_sigs_tt_per_bin[key]["per_bin"] - all_sigs_tt_per_bin["baseline"]["per_bin"], 
-                #yerr=all_sigs_tt_per_bin[key]["err_per_bin"], 
-                label=key+fr"; total: {round(all_sigs_tt_per_bin[key]['total'], 2)}", 
+    ax.errorbar(x_lin_bincenters, all_sigs_tt_per_bin[key]["per_bin"] - all_sigs_tt_per_bin["baseline"]["per_bin"],
+                #yerr=all_sigs_tt_per_bin[key]["err_per_bin"],
+                label=key+fr"; total: {round(all_sigs_tt_per_bin[key]['total'], 2)}",
                 alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
 
 ax.set_xlabel("DNN output node score")

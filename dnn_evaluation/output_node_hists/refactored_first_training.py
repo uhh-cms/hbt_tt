@@ -28,13 +28,6 @@ func = identity
 label_color = "#BE4242"#"#7E3A72"# "#BE185D" ##'#4b2e83'
 "#008C95"
 
-colors = [
-"#F28EBC",  # light pink
-"#D45087",  # rose
-"#9B5DE5",  # lavender violet
-"#5A189A",  # dark violet
-]
-
 path_dnn = "/data/dust/user/hergesk/HH_DNN/evaluation"
 path_old_dnn = "/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24"
 process_loader = ProcessLoader()
@@ -84,6 +77,7 @@ for output in data_dnn_outputs:
             func,
             output)
         histograms[h.name] = histogram
+    embed()
     tot_sig_all_binned, tot_error_sig_all_binned = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
     tot_sig_all = np.sqrt(np.sum(np.square(tot_sig_all_binned)))
     # tot_sig_dl, tot_error_sig_dl = asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")
@@ -92,7 +86,7 @@ for output in data_dnn_outputs:
     for h in histograms:
         histograms[h].reset()
     # TODO calculate total significance, for all categories
-    
+
     ###
     # now split in categories and produce the subplots
     legend_handles = []
@@ -107,7 +101,7 @@ for output in data_dnn_outputs:
         # access all events
         # split the tt bg data in three processes
         # events_dict = d.get_events(dataset)
-        
+
         hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=d.flavor),
                     HistFab("sl_hist", ["tt_sl"], "#009E73", "tt: sl events", flavor=d.flavor),
                     HistFab("dl_hist", ["tt_dl"], "orange", "tt: dl events", flavor=d.flavor),# or
@@ -173,7 +167,7 @@ for output in data_dnn_outputs:
         if not legend_handles:
             legend_handles = lines1 + lines2
             legend_labels = labels1 + labels2
-            
+
         ax.set_yscale("log")
         yaxis_sig.set_yscale("log")
         ax.set_ylabel(r"Events", labelpad=4)
@@ -182,7 +176,7 @@ for output in data_dnn_outputs:
         ax.set_xticks(x_lin_binedges)  # Set label locations.
         ax.set_xticklabels(x_lin_binedges.astype(int), rotation=45)  # Set text labels.
         ax.set_xlabel('HH output node')
-        
+
 
         # upper x axis with bin numbers
         # ax_upper = ax.twiny()

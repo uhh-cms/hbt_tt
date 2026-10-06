@@ -16,17 +16,23 @@ sys.path.append("/afs/desy.de/user/h/hergesk/repos/hbt_tt/dnn_evaluation/modules
 from modules import logit, identity, asimov_significance, flats_binning, add_flow_bin
 from hist_utils import ProcessLoader, Process, HistFab
 
-"""This script analyses the first trained DNN's which sample the tt background in different ways concerning their W decay mode,
-meaning di-leptonic, semi-leptonic and full-hadronic W decay, for a flat-s binning. The Asimov significance is computed.
+"""
+This script plots asimov significance and DNN output node score for the first trained DNN's,
+which sample the tt background in different ways concerning their W decay mode
+meaning di-leptonic, semi-leptonic and full-hadronic W decay. A  flat-s binning is used.
+The data is split into etau, mutau, tautau categories and a btag cut is used (res1b).
+
+Script structure:
+line 63-105 is only used to compute the total Asimov significance.
+Then, the data is further split into categories.
 """
 n_bins = 10
 eps = 1e-6 # set eps=0 for normal scale
-lower_border_flats = -1e2# set to 0 for lin scale
+lower_border_flats = -50# set to 0 for lin scale
 # upper_border = 12# set to 1 for lin scale
 func = identity
 
-label_color = "#BE4242"#"#7E3A72"# "#BE185D" ##'#4b2e83'
-"#008C95"
+label_color = "#BE4242"
 
 path_dnn = "/data/dust/user/hergesk/HH_DNN/evaluation"
 path_old_dnn = "/data/dust/user/wolfmor/hh2bbtautau/background_characterization/prod24"
@@ -77,7 +83,7 @@ for output in data_dnn_outputs:
             func,
             output)
         histograms[h.name] = histogram
-    embed()
+
     tot_sig_all_binned, tot_error_sig_all_binned = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
     tot_sig_all = np.sqrt(np.sum(np.square(tot_sig_all_binned)))
     # tot_sig_dl, tot_error_sig_dl = asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")
@@ -110,13 +116,12 @@ for output in data_dnn_outputs:
                     HistFab("hh_hist", ["hh"], "black", "hh: all events", flavor=d.flavor)
         ]
         # get bin edges for flat s binning
+        # flat-s binning edges must be computed again, because they are different in etau, mutau, tautau category
         if d.flavor == "torch_tensor":
             bin_edges = flats_binning(d.events["hh"]["scores"][:, 0], bin_num = n_bins, hist_edge_l=lower_border_flats)[2]
         if d.flavor == "ak_array":
             bin_edges = flats_binning(torch.from_numpy(ak.to_numpy(logit(d.events["hh"].run3_dnn_moe_hh))), bin_num = n_bins, hist_edge_l=lower_border_flats)[2]
-        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
-        lower_border = bin_edges[0]
-        upper_border = bin_edges[-1]
+
         histograms = {}
         for h in hists:
             histogram = h.create_hist_flats(bin_edges)
@@ -125,21 +130,23 @@ for output in data_dnn_outputs:
                 func,
                 d)
             histograms[h.name] = histogram
+
+        # compute binned sigs
         sig_all, error_sig_all = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
         sig_dl, error_sig_dl = asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")
         sig_sl, error_sig_sl = asimov_significance(histograms["hh_hist"], histograms["sl_hist"], error_type="poisson_weighted")
         sig_fh, error_sig_fh = asimov_significance(histograms["hh_hist"], histograms["fh_hist"], error_type="poisson_weighted")
         all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
         all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
+        # compute total sigs
         all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
         scaling_factor = ((add_flow_bin(histograms["hh_hist"]).sum()+eps)/ (add_flow_bin(histograms["all_tt_hist"]).sum() + add_flow_bin(histograms["dy_hist"]).sum())+eps)**(-1)
-        x = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
-        x = (x[:-1] + x[1:]) / 2  # bin centers
+
         # ---
+        # linspace used for plotting, not for binning
         x_lin_binedges = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
         x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
-        # fig, ax1 = plt.subplots(figsize=(7, 5))
-        # fig.subplots_adjust(right=0.85)
+
         # TODO: loop through hists instead of this error-prone stuff I'm doing here
         # ax1.stairs(add_flow_bin(histograms["all_tt_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
         ax.stairs(add_flow_bin(histograms["sl_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor=hists[1].color, label=r"tt: sl decay")
@@ -172,9 +179,11 @@ for output in data_dnn_outputs:
         yaxis_sig.set_yscale("log")
         ax.set_ylabel(r"Events", labelpad=4)
         ax.yaxis.set_label_coords(-0.08, 0.94)
+
         # lower x axis with bin edges
         ax.set_xticks(x_lin_binedges)  # Set label locations.
-        ax.set_xticklabels(x_lin_binedges.astype(int), rotation=45)  # Set text labels.
+        rounded_xticklabels = [round(i, 2) for i in bin_edges]
+        ax.set_xticklabels(rounded_xticklabels, rotation=45)  # Set text labels.
         ax.set_xlabel('HH output node')
 
 

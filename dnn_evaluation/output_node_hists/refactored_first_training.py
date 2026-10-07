@@ -84,26 +84,40 @@ for output in data_dnn_outputs:
             output)
         histograms[h.name] = histogram
 
+    # significances and errors computed for the titles, before splitting into categories
     tot_sig_all_binned, tot_error_sig_all_binned = asimov_significance(histograms["hh_hist"], histograms["dy_hist"], histograms["fh_hist"], histograms["dl_hist"], histograms["sl_hist"], error_type="poisson_weighted")
     tot_sig_all = np.sqrt(np.sum(np.square(tot_sig_all_binned)))
+    tot_error_all = [[((1/tot_sig_all) * np.sqrt(np.sum(np.square(tot_error_sig_all_binned[0] * tot_sig_all_binned))))],
+                    [((1/tot_sig_all) * np.sqrt(np.sum(np.square(tot_error_sig_all_binned[1] * tot_sig_all_binned))))]]
     # tot_sig_dl, tot_error_sig_dl = asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")
     # tot_sig_sl, tot_error_sig_sl = asimov_significance(histograms["hh_hist"], histograms["sl_hist"], error_type="poisson_weighted")
     # tot_sig_fh, tot_error_sig_fh = asimov_significance(histograms["hh_hist"], histograms["fh_hist"], error_type="poisson_weighted")
     for h in histograms:
         histograms[h].reset()
-    # TODO calculate total significance, for all categories
-
     ###
     # now split in categories and produce the subplots
     legend_handles = []
     legend_labels = []
     split_events = [
-        output.split_into_categories("etau"),
-        output.split_into_categories("mutau"),
-        output.split_into_categories("tautau")
+        output.split_into_categories("etau_res1b"),
+        # output.split_into_categories("etau_res2b"),
+        output.split_into_categories("mutau_res1b"),
+        # output.split_into_categories("mutau_res2b"),
+        output.split_into_categories("tautau_res1b"),
+        # output.split_into_categories("tautau_res2b")
     ]
     fig, axs = plt.subplots(1, 3, figsize=(16, 5), layout='constrained')
-    for ax, d, small_title in zip(axs, split_events, ["etau", "mutau", "tautau"]):
+    for ax, d, small_title in zip(
+            axs.flat,
+            split_events,
+            [r"$\mathbf{e\tau, res1b + res2b}$",
+            # r"$\mathbf{e\tau, res2b}$",
+            r"$\mathbf{\mu\tau, res1b + res2b}$",
+            # r"$\mathbf{\mu\tau, res2b}$",
+            r"$\mathbf{\tau\tau, res1b + res2b}$"
+            #, r"$\mathbf{\tau\tau, res2b}$"
+            ]
+    ):
         # access all events
         # split the tt bg data in three processes
         # events_dict = d.get_events(dataset)
@@ -138,15 +152,20 @@ for output in data_dnn_outputs:
         sig_fh, error_sig_fh = asimov_significance(histograms["hh_hist"], histograms["fh_hist"], error_type="poisson_weighted")
         all_significances = [sig_all, sig_dl, sig_sl, sig_fh]
         all_errors = [error_sig_all, error_sig_dl, error_sig_sl, error_sig_fh]
+
         # compute total sigs
         all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
+        all_err_tot = [[],[]]
+        for i in range(len(all_sig_tot)):
+            all_err_tot[0].append((1/all_sig_tot[i]) * np.sqrt(np.sum(np.square(all_errors[i][0] * all_significances[i]))))
+            all_err_tot[1].append((1/all_sig_tot[i]) * np.sqrt(np.sum(np.square(all_errors[i][1] * all_significances[i]))))
+
         scaling_factor = ((add_flow_bin(histograms["hh_hist"]).sum()+eps)/ (add_flow_bin(histograms["all_tt_hist"]).sum() + add_flow_bin(histograms["dy_hist"]).sum())+eps)**(-1)
 
         # ---
         # linspace used for plotting, not for binning
         x_lin_binedges = np.linspace(lower_border, upper_border, n_bins + 1)  # bin edges
         x_lin_bincenters = (x_lin_binedges[:-1] + x_lin_binedges[1:]) / 2  # bin centers
-
         # TODO: loop through hists instead of this error-prone stuff I'm doing here
         # ax1.stairs(add_flow_bin(histograms["all_tt_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor='red', label=r"tt: all events")
         ax.stairs(add_flow_bin(histograms["sl_hist"]), edges = x_lin_binedges, linewidth=1.5, baseline=0, fill=False, edgecolor=hists[1].color, label=r"tt: sl decay")
@@ -166,7 +185,7 @@ for output in data_dnn_outputs:
         #                                         [r"$Z_A$: tt+dy", r"$Z_A$: tt dl", r"$Z_A$: tt sl", r"$Z_A$: tt fh"],
         #                                         colors):
         #     yaxis_sig.errorbar(x_lin_bincenters, sig, yerr=error, label=label+f"; total: {round(sig_tot, 2)}", color=color, alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
-        yaxis_sig.errorbar(x_lin_bincenters, sig_all, yerr=error_sig_all, label=fr"$Z_A$ (total: {round(tot_sig_all, 2)})", color="#BE4242", alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
+        yaxis_sig.errorbar(x_lin_bincenters, sig_all, yerr=error_sig_all, label=fr"$Z_A$ (total: ${round(tot_sig_all, 2)}^{{+{tot_error_all[0][0]:.3f}}}_{{-{tot_error_all[1][0]:.3f}}}$)", color="#BE4242", alpha=1.0, elinewidth=0.5, capsize=2)# , errorevery=2
         yaxis_sig.tick_params(axis='y', labelcolor=label_color)
         lines1, labels1 = ax.get_legend_handles_labels()
         lines2, labels2 = yaxis_sig.get_legend_handles_labels()
@@ -193,7 +212,7 @@ for output in data_dnn_outputs:
         # ax_upper.set_xticks(x_lin_bincenters)
         # ax_upper.set_xticklabels(range(1,len(x_lin_binedges)), rotation=0)  # Set text labels.
         # ax_upper.set_xlabel('bin number')
-        ax.set_title(small_title + fr", res1b ($Z_A$ = {round(all_sig_tot[0], 2)})", fontsize=11, pad=10)
+        ax.set_title(small_title + fr" ($Z_A = {round(all_sig_tot[0], 2)}^{{+{all_err_tot[0][0]:.3f}}}_{{-{all_err_tot[1][0]:.3f}}}$)", fontsize=11, pad=10)
         for h in histograms:
             histograms[h].reset()
         # yaxis_sig.legend(lines1 + lines2, labels1 + labels2, loc='upper right', bbox_to_anchor=(1.38, 1))

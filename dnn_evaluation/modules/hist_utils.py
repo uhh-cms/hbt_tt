@@ -160,14 +160,29 @@ class Process:
         - etau
         - mutau
         - tautau
-        and adds a btag cut (res1b + res2b together).
+        and adds a btag cut (res1b or res2b).
         """
-        if cat == "mutau":
+        if cat == "mutau_res1b":
             filter_index = 0
-        elif cat == "etau":
+            btag_index = 1
+        elif cat == "mutau_res2b":
+            print(colored("Warning: res2b category cannot be plotted yet, because the wrong column was passed during training", "red"))
+            filter_index = 0
+            btag_index = 2
+        elif cat == "etau_res1b":
             filter_index = 1
-        elif cat == "tautau":
+            btag_index = 1
+        elif cat == "etau_res2b":
+            print(colored("Warning: res2b category cannot be plotted yet, because the wrong column was passed during training", "red"))
+            filter_index = 1
+            btag_index = 2
+        elif cat == "tautau_res1b":
             filter_index = 2
+            btag_index = 1
+        elif cat == "tautau_res2b":
+            print(colored("Warning: res2b category cannot be plotted yet, because the wrong column was passed during training", "red"))
+            filter_index = 2
+            btag_index = 2
         else:
             print(colored("Warning: category to split doesn't match the possible options. Please use 'etau', 'mutau' or 'tautau'.", "red"))
         ev = {
@@ -179,9 +194,12 @@ class Process:
             # keys are masks, event are "hh", "tt_dl" etc
 
             # define masks (bmask2 already includes bmask1)
-            bmask1 = event["bjet_mask"]
-            bmask2 = event["di_bjet"]
-            btag_mask = bmask1 | bmask2
+            bmask1 = event["bjet_mask"] # res1b
+            bmask2 = event["di_bjet"] # ONLY MASS WINDOW FOR res2b
+            if btag_index == 1:
+                btag_mask = bmask1
+            elif btag_index == 2:
+                btag_mask = bmask2
 
             pairtype_mask = event["pair_type"] == filter_index
             mask =  btag_mask & pairtype_mask
@@ -197,7 +215,7 @@ class Process:
                     flavor=self.flavor
                 )
     def add_btagcut(self):
-        """adds a btag cut (res1b + res2b together).
+        """adds a btag cut (res1b or res2b).
         """
         ev = {
             key: event.copy()
@@ -208,7 +226,7 @@ class Process:
             # keys are masks, event are "hh", "tt_dl" etc
 
             # define masks (bmask2 already includes bmask1)
-            bmask1 = event["bjet_mask"]
+            bmask1 = event["bjet_mask"] # res1b
             bmask2 = event["di_bjet"]
             btag_mask = bmask1 | bmask2
 

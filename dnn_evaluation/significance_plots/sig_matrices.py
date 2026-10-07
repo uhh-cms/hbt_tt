@@ -84,20 +84,20 @@ for output in data_dnn_outputs:
     tot_sig_fh, tot_error_sig_fh = asimov_significance(histograms["hh_hist"], histograms["fh_hist"], error_type="poisson_weighted")
     all_significances = [tot_sig_all, tot_sig_dl, tot_sig_sl, tot_sig_fh]
     # all_errors = [tot_error_sig_all, tot_error_sig_dl, tot_error_sig_sl, tot_error_sig_fh]
-    all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]    
+    all_sig_tot = [np.sqrt(np.sum(np.square(s))) for s in all_significances]
     split_events = [
-        output.split_into_categories("etau"),
-        output.split_into_categories("mutau"),
-        output.split_into_categories("tautau")
+        output.split_into_categories("etau_res1b"),
+        output.split_into_categories("mutau_res1b"),
+        output.split_into_categories("tautau_res1b")
     ]
-    sig_cats = {"etau": {}, 
+    sig_cats = {"etau": {},
                "mutau": {},
                "tautau": {}
                }
     for d, category in zip(split_events, ["etau", "mutau", "tautau"]):
         # split the tt bg data in three processes
         # events_dict = d.get_events(dataset)
-        
+
         hists = [HistFab("all_tt_hist", ["tt_dl", "tt_sl", "tt_fh"], "red", "tt: all events", flavor=d.flavor),
                     HistFab("sl_hist", ["tt_sl"], "#009E73", "tt: sl events", flavor=d.flavor),
                     HistFab("dl_hist", ["tt_dl"], "#0072B2", "tt: dl events", flavor=d.flavor),# or
@@ -125,7 +125,7 @@ for output in data_dnn_outputs:
         sig_dl = np.sqrt(np.sum(np.square(asimov_significance(histograms["hh_hist"], histograms["dl_hist"], error_type="poisson_weighted")[0])))
         sig_sl = np.sqrt(np.sum(np.square(asimov_significance(histograms["hh_hist"], histograms["sl_hist"], error_type="poisson_weighted")[0])))
         sig_fh = np.sqrt(np.sum(np.square(asimov_significance(histograms["hh_hist"], histograms["fh_hist"], error_type="poisson_weighted")[0])))
-        
+
         sig_cats[category] = {"tt dl": round(sig_dl, 4),
                               "tt_sl": round(sig_sl, 4),
                               "tt_fh": round(sig_fh, 4)

@@ -226,14 +226,13 @@ class Process:
             # keys are masks, event are "hh", "tt_dl" etc
 
             # define masks (bmask2 already includes bmask1)
-            bmask1 = event["bjet_mask"] # res1b
-            bmask2 = event["di_bjet"]
-            btag_mask = bmask1 | bmask2
+            bmask1 = event["bjet_mask"] # one or more HHbtagged jets
+            # bmask2 = event["di_bjet"]
+            # btag_mask = bmask1 | bmask2
 
             for field, value in event.items():
                 if field not in ("bjet_mask", "di_bjet"):
-                    embed()
-                    event[field] = value[btag_mask]
+                    event[field] = value[bmask1]
 
         return Process(
                     events=ev,
@@ -259,7 +258,7 @@ class HistFab:
             "name": self.name,
             "color": self.color,
             "label": self.label,
-            "type": self.type,
+            # "type": self.type,
         }
 
     def create_hist(self, n_bins, lower_border, upper_border):
@@ -285,6 +284,10 @@ class HistFab:
         )
 
     def fill_hist(self, h, func, events):
+        """fill histogram with data from events, using the function func to transform the data (e.g. logit).
+        The histogram is filled with the scores of the events, weighted by the product of weights and normalization weights
+        and filtered by the event keys specified in the HistFab instance.
+        """
         from modules import logit, identity
         if self.flavor == "torch_tensor":
             for key in self.event_keys:

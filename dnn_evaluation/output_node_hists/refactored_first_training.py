@@ -74,7 +74,8 @@ for output in data_dnn_outputs:
         bin_edges = flats_binning(torch.from_numpy(ak.to_numpy(logit(output.events["hh"].run3_dnn_moe_hh))), bin_num = n_bins, hist_edge_l=lower_border_flats)[2]
     bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
     lower_border = bin_edges[0]
-    upper_border = bin_edges[-1]
+    upper_border = 15
+    # upper_border = bin_edges[-1]
     histograms = {}
     for h in hists:
         histogram = h.create_hist_flats(bin_edges)
@@ -196,15 +197,26 @@ for output in data_dnn_outputs:
 
         ax.set_yscale("log")
         yaxis_sig.set_yscale("log")
+        yaxis_sig.set_ylim(0, 1.1 * max(all_sig_tot))
+        ax.set_ylim(0, 1.1 * 7*10**4)
         ax.set_ylabel(r"Events", labelpad=4)
         ax.yaxis.set_label_coords(-0.08, 0.94)
 
         # lower x axis with bin edges
         ax.set_xticks(x_lin_binedges)  # Set label locations.
-        rounded_xticklabels = [round(i, 2) for i in bin_edges]
-        ax.set_xticklabels(rounded_xticklabels, rotation=45)  # Set text labels.
-        ax.set_xlabel('HH output node')
-
+        ax.set_xticklabels(np.arange(0,11,1))
+        # rounded_xticklabels = [round(i, 2) for i in bin_edges]
+        # ax.set_xticklabels(rounded_xticklabels, rotation=45)  # Set text labels.
+        # ax.set_xlabel('HH output node')
+        ax.set_xlabel("DNN output node score", labelpad=16, fontsize = 10)
+        ax.text(
+            1.0, -0.08,
+            "Bin number",
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize = 10
+        )
 
         # upper x axis with bin numbers
         # ax_upper = ax.twiny()

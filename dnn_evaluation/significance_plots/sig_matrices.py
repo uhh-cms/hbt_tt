@@ -133,4 +133,4 @@ for output in data_dnn_outputs:
     sig_frames = pd.DataFrame(sig_cats)
     if output.label == "baseline":
         sig_loader = SigLoader(sig_frames)
-    sig_loader.make_matrix(sig_frames, save_path=f"images_sig_matrix/sig_{output.label}")
+    sig_loader.make_matrix(sig_frames, plotting_label=output.description, save_path=f"images_sig_matrix/sig_{output.label}")

@@ -23,16 +23,16 @@ This script features all important classes and functions for the different signi
 
 class SigLoader:
     """
-    calculates and stores the 3x3 tt background significance values for 
+    calculates and stores the 3x3 tt background significance values for
     - 3 categories: etau, mutau, tautau
     - times 3 W decay modes: dl, sl, fh
-    
+
     input: significances of baseline DNN (dict)
     """
     def __init__(self, baseline: pd.DataFrame):
         self.baseline = baseline
-            
-    def make_matrix(self, sigs: pd.DataFrame, save_path: str):
+
+    def make_matrix(self, sigs: pd.DataFrame, plotting_label: str, save_path: str):
         """calculates a sig matrix from the input dict.
         calculates the difference to the baseline values
         and plots it as a colormap."""
@@ -41,25 +41,26 @@ class SigLoader:
         # Cells
         cmap = LinearSegmentedColormap.from_list(
         "blue_rose",
-        ["#4A90E2", "#FFFFFF", "#D98BA3"]
+        ["#2D22BE", "#FFFFFF", "#DF285F"
+        ]
 )
+
+
+        differences = sigs - self.baseline
+        norm = Normalize(vmin=-0.4, vmax=0.4)#(vmin=-0.12, vmax=0.12)
+
         for row in range(3):
             for col in range(3):
-                # compute diff between sigs and self.baseline
-                # higher sig is red, lower blue
-                diff = sigs.iloc[row, col] - self.baseline.iloc[row, col]
-            
-                # normalize diff so that 0 is middle -> white
-                norm = Normalize(vmin=-0.12, vmax=0.12)
-                cell_color = cmap(norm(diff))
+                diff = differences.iloc[row, col]
+                cell_color = cmap(int(norm(diff) * 255)) # cmap expects value from 0 to 255
 
                 ax.add_patch(
                     Rectangle(
-                        (col - 0.5, row - 0.5), 1, 1, facecolor=cell_color, alpha=0.25, edgecolor="0.65", linewidth=0.8)
+                        (col - 0.5, row - 0.5), 1, 1, facecolor=cell_color, alpha=1, edgecolor="0.65", linewidth=0.8)
                 )
                 ax.text(
-                    col, row, 
-                    f"{sigs.iloc[row, col]:.4f}", # take corresponding sig from dataframe and round to exactly 4 decimal nb 
+                    col, row,
+                    f"{sigs.iloc[row, col]:.4f}", # take corresponding sig from dataframe and round to exactly 4 decimal nb
                     ha="center", va="center", fontsize=12
                 )
 
@@ -76,12 +77,17 @@ class SigLoader:
         for spine in ax.spines.values():
             spine.set_linewidth(1.2)
 
-        sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
-        fig.colorbar(sm, ax=ax, label=r"$\Delta\text{ } Z_A$ to baseline")
+
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax)
+        # fig.colorbar(sm, ax=ax, label=r"$\Delta\text{ } Z_A$ to baseline")
+
+        ax.set_title(f"Weighting: {plotting_label}", fontsize=13, pad=32)
+        cbar.ax.set_title(r"$\Delta Z_A$"+" \n to baseline", fontsize=11, pad=15)
 
         ax.tick_params(which="both", length=0)
         plt.tight_layout()
         plt.savefig(save_path)
         plt.show()
-        
-    
+
